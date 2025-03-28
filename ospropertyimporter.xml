@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="system" method="upgrade" version="5.0">
+    <name>plg_system_altoimporter</name>
+    <author>Russell English</author>
+    <version>1.0.0</version>
+    <description>Imports property data from Alto into OS Property</description>
+    <license>GNU General Public License version 2 or later</license>
+    <namespace path="src">Joomla\Plugin\System\Ospropertyimporter</namespace>
+    <files>
+        <filename plugin="altoimporter">altoimporter.php</filename>
+        <filename>services/provider.php</filename>
+        <filename>script.php</filename>
+        <folder>src</folder>
+    </files>
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field name="api_key" type="text" label="Alto API Key" required="true" />
+                <field name="username" type="text" label="Alto Username" required="true" />
+                <field name="password" type="password" label="Alto Password" required="true" showon="api_key!==" />
+            </fieldset>
+        </fields>
+    </config>
+    <scriptfile>script.php</scriptfile>
+
+    <languages>
+        <language tag="en-GB">language/en-GB/plg_system_altoimporter.ini</language>
+        <language tag="en-GB">language/en-GB/plg_system_altoimporter.sys.ini</language>
+    </languages>
+</extension>
