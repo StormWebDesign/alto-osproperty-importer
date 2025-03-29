@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="system" method="upgrade" version="5.0">
+    <name>PLG_SYSTEM_ALTOIMPORTER</name>
+    <author>Russell English</author>
+    <creationDate>2025-03-29</creationDate>
+    <copyright>Copyright (C) 2025 Storm Web Design</copyright>
+    <license>GPL-2.0-or-later</license>
+    <version>1.0.0</version>
+    <description>PLG_SYSTEM_ALTOIMPORTER_DESC</description>
+    <namespace path="src">Joomla\Plugin\System\Altoimporter</namespace>
+
+    <!-- Installer script -->
+    <scriptfile>script.php</scriptfile>
+
+    <!-- Plugin files -->
+    <files>
+        <filename plugin="altoimporter">altoimporter.php</filename>
+        <filename>script.php</filename>
+
+        <!-- API Service -->
+        <folder>services</folder>
+
+        <!-- Eloquent Models -->
+        <folder>src/Models</folder>
+
+        <!-- Scheduled Task -->
+        <folder>src/Extension/Altoimporter/Task</folder>
+
+        <!-- Admin UI -->
+        <folder>tmpl</folder>
+    </files>
+
+    <!-- Admin language files -->
+    <languages>
+        <language tag="en-GB">language/en-GB/plg_system_altoimporter.ini</language>
+        <language tag="en-GB">language/en-GB/plg_system_altoimporter.sys.ini</language>
+    </languages>
+
+    <!-- Configurable parameters -->
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field
+                    name="api_key"
+                    type="text"
+                    label="PLG_SYSTEM_ALTOIMPORTER_API_KEY"
+                    description="PLG_SYSTEM_ALTOIMPORTER_API_KEY_DESC"
+                    required="true"
+                />
+                <field
+                    name="username"
+                    type="text"
+                    label="PLG_SYSTEM_ALTOIMPORTER_USERNAME"
+                    description="PLG_SYSTEM_ALTOIMPORTER_USERNAME_DESC"
+                    required="true"
+                />
+                <field
+                    name="password"
+                    type="password"
+                    label="PLG_SYSTEM_ALTOIMPORTER_PASSWORD"
+                    description="PLG_SYSTEM_ALTOIMPORTER_PASSWORD_DESC"
+                    showon="basic"
+                />
+                <field
+                    name="log_level"
+                    type="list"
+                    label="PLG_SYSTEM_ALTOIMPORTER_LOG_LEVEL"
+                    description="PLG_SYSTEM_ALTOIMPORTER_LOG_LEVEL_DESC"
+                    default="info"
+                >
+                    <option value="debug">Debug</option>
+                    <option value="info">Info</option>
+                    <option value="notice">Notice</option>
+                    <option value="warning">Warning</option>
+                    <option value="error">Error</option>
+                </field>
+            </fieldset>
+        </fields>
+    </config>
+
+    <!-- Scheduled Task Support -->
+    <tasks>
+        <task
+            group="system"
+            class="Joomla\Plugin\System\Altoimporter\Extension\Altoimporter\Task\ImportTask"
+            name="PLG_SYSTEM_ALTOIMPORTER_TASK_IMPORT"
+            title="PLG_SYSTEM_ALTOIMPORTER_TASK_IMPORT_TITLE"
+            description="PLG_SYSTEM_ALTOIMPORTER_TASK_IMPORT_DESC"
+        />
+    </tasks>
+</extension>

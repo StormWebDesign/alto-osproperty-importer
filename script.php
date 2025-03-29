@@ -1,55 +1,78 @@
 <?php
+/**
+ * @package     Joomla.Plugin
+ * @subpackage  System.Altoimporter
+ *
+ * @copyright   Copyright (C) 2024
+ * @license     GNU General Public License version 2 or later
+ */
 
 defined('_JEXEC') or die;
 
-use Joomla\CMS\Installer\InstallerAdapter;
-use Joomla\CMS\Installer\InstallerScript;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Installer\InstallerAdapter;
+use Joomla\CMS\Installer\InstallerScriptInterface;
 
-class PlgSystemAltoimporterInstallerScript implements InstallerScript
+class PlgSystemAltoimporterInstallerScript implements InstallerScriptInterface
 {
-    public function install(InstallerAdapter $adapter): bool
+    /**
+     * Method to run before install/update/uninstall.
+     */
+    public function preflight(string $type, InstallerAdapter $parent): void
     {
-        return $this->addAltoIdColumn();
+        // Nothing needed here for now
     }
 
-    public function update(InstallerAdapter $adapter): bool
+    /**
+     * Method to install the plugin.
+     */
+    public function install(InstallerAdapter $parent): void
     {
-        return $this->addAltoIdColumn();
+        $this->addAltoIdColumn();
     }
 
-    public function uninstall(InstallerAdapter $adapter): bool
+    /**
+     * Method to update the plugin.
+     */
+    public function update(InstallerAdapter $parent): void
     {
-        return true;
+        $this->addAltoIdColumn();
     }
 
-    public function preflight(string $type, InstallerAdapter $adapter): bool
+    /**
+     * Method to uninstall the plugin.
+     */
+    public function uninstall(InstallerAdapter $parent): void
     {
-        return true;
+        // No database rollback to avoid unintended data loss
     }
 
-    public function postflight(string $type, InstallerAdapter $adapter): bool
+    /**
+     * Method to run after install/update/uninstall.
+     */
+    public function postflight(string $type, InstallerAdapter $parent): void
     {
-        return true;
+        // Nothing needed here for now
     }
 
-    protected function addAltoIdColumn(): bool
+    /**
+     * Add alto_id column to osrs_properties table if it doesn't exist.
+     */
+    protected function addAltoIdColumn(): void
     {
         $db = Factory::getDbo();
-        $table = $db->quoteName('#__osrs_properties');
+        $prefix = $db->getPrefix();
+        $table = $prefix . 'osrs_properties';
 
         try {
             $columns = $db->getTableColumns($table);
 
-            if (!isset($columns['alto_id'])) {
-                $query = "ALTER TABLE $table ADD alto_id VARCHAR(255) DEFAULT NULL";
+            if (!array_key_exists('alto_id', $columns)) {
+                $query = "ALTER TABLE `$table` ADD `alto_id` VARCHAR(64) NULL DEFAULT NULL AFTER `id`";
                 $db->setQuery($query)->execute();
             }
         } catch (\Exception $e) {
-            Factory::getApplication()->enqueueMessage('Failed to add alto_id column: ' . $e->getMessage(), 'error');
-            return false;
+            Factory::getApplication()->enqueueMessage('Error modifying osrs_properties table: ' . $e->getMessage(), 'error');
         }
-
-        return true;
     }
 }

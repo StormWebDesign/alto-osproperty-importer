@@ -3,9 +3,24 @@
 namespace Joomla\Plugin\System\Altoimporter\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Joomla\CMS\Factory;
 
 class OsPropertyCategory extends Model
 {
-    protected $table = '#__osrs_property_categories';
     public $timestamps = false;
+
+    protected $table;
+
+    protected $fillable = [
+        'id',
+        'pid',
+        'category_id',
+    ];
+
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+
+        $this->table = Factory::getDbo()->getPrefix() . 'osrs_property_categories';
+    }
 }

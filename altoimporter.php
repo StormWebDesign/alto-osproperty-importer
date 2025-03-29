@@ -2,77 +2,101 @@
 
 namespace Joomla\Plugin\System\Altoimporter;
 
+defined('_JEXEC') || die;
+
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\Factory;
+use Joomla\CMS\MVC\Factory\MVCFactoryInterface;
 use Joomla\CMS\Uri\Uri;
-use Joomla\CMS\Filesystem\Folder;
-use Joomla\CMS\Filesystem\File;
-use Joomla\Plugin\System\Altoimporter\Models\OsProperty;
-use Joomla\CMS\Http\HttpFactory;
+use Joomla\CMS\Toolbar\Toolbar;
+use Joomla\CMS\Toolbar\ToolbarHelper;
+use Joomla\CMS\Application\CMSApplicationInterface;
+use Joomla\CMS\Log\Log;
+use Joomla\CMS\Router\Route;
+use Joomla\CMS\HTML\HTMLHelper;
+use Joomla\CMS\Language\Text;
 
-defined('_JEXEC') or die;
+use Joomla\Plugin\System\Altoimporter\Services\AltoApiService;
 
-class PluginSystemAltoimporter extends CMSPlugin
+class Plugin extends CMSPlugin
 {
     protected $autoloadLanguage = true;
 
-    public function onAfterInitialise()
-    {
-        $app = Factory::getApplication();
+    protected CMSApplicationInterface $app;
 
-        if ($app->isClient('administrator') && $app->input->get('altoimport', '', 'cmd') === 'run') {
-            $this->importProperties();
-        }
+    /**
+     * onAfterInitialise - Joomla lifecycle hook
+     */
+    public function onAfterInitialise(): void
+    {
+        // Optional: Do something after Joomla has initialised
     }
 
-    private function importProperties()
+    /**
+     * Used by Joomla Scheduled Tasks or Manual Trigger to start the import
+     */
+    public function runImport(): void
     {
-        $http = HttpFactory::getHttp();
-        $apiKey = $this->params->get('api_key');
-        $username = $this->params->get('username');
-        $password = $this->params->get('password');
-
-        $url = 'https://api.altosoftware.co.uk/export/1.0/property';
-        $headers = ['apiKey: ' . $apiKey];
-        $options = [
-            'auth' => [$username, $password]
-        ];
-
         try {
-            $response = $http->get($url, $headers, $options);
-            $properties = json_decode($response->body, true)['data'];
+            $logLevel = $this->params->get('log_level', 'info');
+            Log::addLogger(
+                ['text_file' => 'altoimporter.log.php'],
+                Log::ALL,
+                ['plg_system_altoimporter']
+            );
 
-            foreach ($properties as $property) {
-                OsProperty::updateOrCreate(
-                    ['alto_id' => $property['id']],
-                    [
-                        'ref' => $property['uniqueReference'],
-                        'pro_name' => $property['summary'],
-                        'pro_alias' => $this->generateAlias($property['summary']),
-                        'pro_browser_title' => $property['summary'],
-                        'pro_small_desc' => $property['description'],
-                        'pro_full_desc' => $property['description'],
-                        'price' => $property['price']['amount'] ?? 0,
-                        'bed_room' => $property['bedrooms'],
-                        'bath_room' => $property['bathrooms'],
-                        'square_feet' => $property['area']['value'] ?? 0,
-                        'address' => $property['address']['displayAddress'],
-                        'postcode' => $property['address']['postcode'],
-                        'lat_add' => $property['address']['latitude'] ?? '',
-                        'long_add' => $property['address']['longitude'] ?? '',
-                        'published' => 1
-                    ]
-                );
+            Log::add('Alto Import started', Log::INFO, 'plg_system_altoimporter');
+
+            $apiKey = $this->params->get('api_key');
+            $username = $this->params->get('username');
+            $password = $this->params->get('password');
+
+            if (!$apiKey || !$username || !$password) {
+                Log::add('Missing Alto API credentials.', Log::ERROR, 'plg_system_altoimporter');
+                return;
             }
 
-            Factory::getApplication()->enqueueMessage('Alto Import Complete: ' . count($properties) . ' properties processed.');
+            // Call the service
+            $service = new AltoApiService($apiKey, $username, $password);
+            $properties = $service->fetchProperties();
+
+            foreach ($properties as $property) {
+                $service->importProperty($property);
+            }
+
+            Log::add('Alto Import completed successfully.', Log::INFO, 'plg_system_altoimporter');
+
         } catch (\Exception $e) {
-            Factory::getApplication()->enqueueMessage('Alto Import Failed: ' . $e->getMessage(), 'error');
+            Log::add('Alto Import failed: ' . $e->getMessage(), Log::ERROR, 'plg_system_altoimporter');
         }
     }
 
-    private function generateAlias($string)
+    /**
+     * Optional method: Adds menu item in admin if needed (not required for core plugin use)
+     */
+    public function onAfterDispatch()
     {
-        return strtolower(preg_replace('/[^a-z0-9]+/', '-', trim($string)));
+        $input = $this->app->input;
+
+        if (!$this->app->isClient('administrator') || $input->getCmd('option') !== 'com_plugins' || $input->getCmd('plugin') !== 'altoimporter') {
+            return;
+        }
+
+        // Add import toolbar button if on plugin settings page
+        $bar = Toolbar::getInstance('toolbar');
+        $bar->appendButton('Custom', '<a class="btn btn-small btn-success" href="' . Route::_('index.php?option=com_plugins&task=plugin.importAlto&plugin=altoimporter&group=system') . '">' . Text::_('PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT') . '</a>', 'import');
+    }
+
+    /**
+     * Custom task handler (when clicking manual import in admin)
+     */
+    public function onCustomTask($task)
+    {
+        if ($task === 'importAlto') {
+            $this->runImport();
+
+            $this->app->enqueueMessage(Text::_('PLG_SYSTEM_ALTOIMPORTER_IMPORT_COMPLETE'), 'message');
+            $this->app->redirect(Route::_('index.php?option=com_plugins&view=plugins', false));
+        }
     }
 }
