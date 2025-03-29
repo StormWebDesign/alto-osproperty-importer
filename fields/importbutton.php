@@ -14,9 +14,9 @@ use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Uri\Uri;
 use Joomla\CMS\Language\Text;
 
-class JFormFieldImportButton extends FormField
+class JFormFieldImportbutton extends FormField
 {
-    protected $type = 'ImportButton';
+    protected $type = 'importbutton';
 
     protected function getInput()
     {
