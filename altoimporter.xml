@@ -5,7 +5,7 @@
     <creationDate>2025-03-29</creationDate>
     <copyright>Copyright (C) 2025 Storm Web Design</copyright>
     <license>GPL-2.0-or-later</license>
-    <version>1.0.0</version>
+    <version>1.0.3</version>
     <description>PLG_SYSTEM_ALTOIMPORTER_DESC</description>
     <namespace path="src">Joomla\Plugin\System\Altoimporter</namespace>
 
@@ -16,6 +16,8 @@
     <files>
         <filename plugin="altoimporter">altoimporter.php</filename>
         <filename>script.php</filename>
+
+        <folder>fields</folder>
 
         <!-- API Service -->
         <folder>services</folder>
@@ -74,6 +76,13 @@
                     <option value="warning">Warning</option>
                     <option value="error">Error</option>
                 </field>
+                <field
+                    name="manual_import"
+                    type="importbutton"
+                    label="PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT"
+                    description="PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT_DESC"
+                />
+
             </fieldset>
         </fields>
     </config>

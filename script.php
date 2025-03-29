@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     Joomla.Plugin
  * @subpackage  System.Altoimporter
@@ -18,41 +19,46 @@ class PlgSystemAltoimporterInstallerScript implements InstallerScriptInterface
     /**
      * Method to run before install/update/uninstall.
      */
-    public function preflight(string $type, InstallerAdapter $parent): void
+    public function preflight(string $type, InstallerAdapter $parent): bool
     {
-        // Nothing needed here for now
+        // Nothing needed for now
+        return true;
     }
 
     /**
      * Method to install the plugin.
      */
-    public function install(InstallerAdapter $parent): void
+    public function install(InstallerAdapter $parent): bool
     {
         $this->addAltoIdColumn();
+        return true;
     }
 
     /**
      * Method to update the plugin.
      */
-    public function update(InstallerAdapter $parent): void
+    public function update(InstallerAdapter $parent): bool
     {
         $this->addAltoIdColumn();
+        return true;
     }
 
     /**
      * Method to uninstall the plugin.
      */
-    public function uninstall(InstallerAdapter $parent): void
+    public function uninstall(InstallerAdapter $parent): bool
     {
-        // No database rollback to avoid unintended data loss
+        // No rollback for DB column
+        return true;
     }
 
     /**
      * Method to run after install/update/uninstall.
      */
-    public function postflight(string $type, InstallerAdapter $parent): void
+    public function postflight(string $type, InstallerAdapter $parent): bool
     {
-        // Nothing needed here for now
+        // Nothing needed
+        return true;
     }
 
     /**

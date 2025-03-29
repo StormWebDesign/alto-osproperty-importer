@@ -15,6 +15,7 @@ use Joomla\CMS\Log\Log;
 use Joomla\CMS\Router\Route;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
+use Joomla\CMS\Response\JsonResponse;
 
 use Joomla\Plugin\System\Altoimporter\Services\AltoApiService;
 
@@ -65,7 +66,6 @@ class Plugin extends CMSPlugin
             }
 
             Log::add('Alto Import completed successfully.', Log::INFO, 'plg_system_altoimporter');
-
         } catch (\Exception $e) {
             Log::add('Alto Import failed: ' . $e->getMessage(), Log::ERROR, 'plg_system_altoimporter');
         }
@@ -97,6 +97,26 @@ class Plugin extends CMSPlugin
 
             $this->app->enqueueMessage(Text::_('PLG_SYSTEM_ALTOIMPORTER_IMPORT_COMPLETE'), 'message');
             $this->app->redirect(Route::_('index.php?option=com_plugins&view=plugins', false));
+        }
+    }
+
+    public function onAjaxAltoimporterDoImport(): JsonResponse
+    {
+        // Check if this is the admin interface
+        if (!Factory::getApplication()->isClient('administrator')) {
+            return new JsonResponse(null, Text::_('JERROR_ALERTNOAUTHOR'), true);
+        }
+
+        try {
+            // Load the import logic
+            $service = new \Joomla\Plugin\System\Altoimporter\Service\AltoApiService($this->params);
+            $result = $service->importProperties();
+
+            return new JsonResponse([
+                'message' => 'Manual import completed. Imported ' . $result['imported'] . ' properties, updated ' . $result['updated'] . '.'
+            ]);
+        } catch (\Throwable $e) {
+            return new JsonResponse(null, 'Import failed: ' . $e->getMessage(), true);
         }
     }
 }
