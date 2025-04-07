@@ -78,11 +78,12 @@
                 </field>
                 <field
                     name="manual_import"
-                    type="importbutton"
+                    type="spacer"
                     label="PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT"
                     description="PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT_DESC"
+                    hr="true"
+                    class="btn-alto-import"
                 />
-
             </fieldset>
         </fields>
     </config>

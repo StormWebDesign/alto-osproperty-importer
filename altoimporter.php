@@ -1,122 +1,139 @@
 <?php
+/**
+ * @package     Joomla.Plugin
+ * @subpackage  System.Altoimporter
+ * @copyright   Copyright (C) 2025 Storm Web Design
+ * @license     GNU General Public License version 2 or later
+ */
 
 namespace Joomla\Plugin\System\Altoimporter;
 
-defined('_JEXEC') || die;
+\defined('_JEXEC') or die;
 
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\Factory;
-use Joomla\CMS\MVC\Factory\MVCFactoryInterface;
 use Joomla\CMS\Uri\Uri;
-use Joomla\CMS\Toolbar\Toolbar;
-use Joomla\CMS\Toolbar\ToolbarHelper;
-use Joomla\CMS\Application\CMSApplicationInterface;
-use Joomla\CMS\Log\Log;
-use Joomla\CMS\Router\Route;
-use Joomla\CMS\HTML\HTMLHelper;
+use Joomla\CMS\Document\HtmlDocument;
 use Joomla\CMS\Language\Text;
+use Joomla\CMS\MVC\Factory\MVCFactoryAwareTrait;
+use Joomla\CMS\Plugin\PluginHelper;
 use Joomla\CMS\Response\JsonResponse;
+use Joomla\CMS\Component\ComponentHelper;
+use Joomla\CMS\HTML\HTMLHelper;
 
 use Joomla\Plugin\System\Altoimporter\Services\AltoApiService;
+use Joomla\Plugin\System\Altoimporter\Models\OsProperty;
+use Joomla\Plugin\System\Altoimporter\Models\OsPhoto;
+use Joomla\Plugin\System\Altoimporter\Models\OsPropertyCategory;
+use Joomla\Plugin\System\Altoimporter\Models\OsPropertyAmenity;
+use Joomla\Plugin\System\Altoimporter\Models\OsCity;
+use Joomla\Plugin\System\Altoimporter\Models\OsCountry;
 
-class Plugin extends CMSPlugin
+use Exception;
+
+/**
+ * Alto Importer Plugin
+ */
+class PlgSystemAltoimporter extends CMSPlugin
 {
+    protected $app;
     protected $autoloadLanguage = true;
 
-    protected CMSApplicationInterface $app;
-
     /**
-     * onAfterInitialise - Joomla lifecycle hook
+     * Run scheduled task
      */
-    public function onAfterInitialise(): void
+    public function onAltoimporterTaskImport()
     {
-        // Optional: Do something after Joomla has initialised
+        return $this->performImport();
     }
 
     /**
-     * Used by Joomla Scheduled Tasks or Manual Trigger to start the import
+     * Handle AJAX manual import
      */
-    public function runImport(): void
+    public function onAjaxAltoimporterDoImport()
     {
         try {
-            $logLevel = $this->params->get('log_level', 'info');
-            Log::addLogger(
-                ['text_file' => 'altoimporter.log.php'],
-                Log::ALL,
-                ['plg_system_altoimporter']
-            );
-
-            Log::add('Alto Import started', Log::INFO, 'plg_system_altoimporter');
-
-            $apiKey = $this->params->get('api_key');
-            $username = $this->params->get('username');
-            $password = $this->params->get('password');
-
-            if (!$apiKey || !$username || !$password) {
-                Log::add('Missing Alto API credentials.', Log::ERROR, 'plg_system_altoimporter');
-                return;
-            }
-
-            // Call the service
-            $service = new AltoApiService($apiKey, $username, $password);
-            $properties = $service->fetchProperties();
-
-            foreach ($properties as $property) {
-                $service->importProperty($property);
-            }
-
-            Log::add('Alto Import completed successfully.', Log::INFO, 'plg_system_altoimporter');
-        } catch (\Exception $e) {
-            Log::add('Alto Import failed: ' . $e->getMessage(), Log::ERROR, 'plg_system_altoimporter');
+            $result = $this->performImport();
+            return new JsonResponse(['message' => Text::_('PLG_SYSTEM_ALTOIMPORTER_IMPORT_SUCCESS')]);
+        } catch (Exception $e) {
+            return new JsonResponse($e->getMessage(), true);
         }
     }
 
     /**
-     * Optional method: Adds menu item in admin if needed (not required for core plugin use)
+     * Perform the import
      */
-    public function onAfterDispatch()
+    protected function performImport(): bool
     {
-        $input = $this->app->input;
+        $params = $this->params;
 
-        if (!$this->app->isClient('administrator') || $input->getCmd('option') !== 'com_plugins' || $input->getCmd('plugin') !== 'altoimporter') {
+        $apiKey    = $params->get('api_key');
+        $username  = $params->get('username');
+        $password  = $params->get('password');
+        $logLevel  = $params->get('log_level', 'info');
+
+        if (!$apiKey || !$username || !$password) {
+            throw new \RuntimeException('Missing API credentials in plugin settings.');
+        }
+
+        // Create service and run import
+        $service = new AltoApiService($apiKey, $username, $password, $logLevel);
+        $service->importAllProperties();
+
+        return true;
+    }
+
+    /**
+     * Inject JS and button logic for manual import
+     */
+    public function onBeforeCompileHead()
+    {
+        if (!$this->app->isClient('administrator')) {
             return;
         }
 
-        // Add import toolbar button if on plugin settings page
-        $bar = Toolbar::getInstance('toolbar');
-        $bar->appendButton('Custom', '<a class="btn btn-small btn-success" href="' . Route::_('index.php?option=com_plugins&task=plugin.importAlto&plugin=altoimporter&group=system') . '">' . Text::_('PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT') . '</a>', 'import');
+        $input = $this->app->input;
+        if (
+            $input->getCmd('option') !== 'com_plugins' ||
+            $input->getCmd('plugin') !== 'altoimporter'
+        ) {
+            return;
+        }
+
+        /** @var HtmlDocument $doc */
+        $doc = Factory::getDocument();
+
+        $ajaxUrl = Uri::base() . 'index.php?option=com_ajax&plugin=altoimporter&group=system&format=json&task=doImport';
+
+        $js = <<<JS
+document.addEventListener('DOMContentLoaded', function () {
+    const btn = document.getElementById('altoManualImport');
+    const log = document.getElementById('altoImportLog');
+
+    if (btn) {
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            log.innerHTML = '<p>Running import...</p>';
+
+            fetch('$ajaxUrl')
+                .then(res => res.json())
+                .then(data => {
+                    btn.disabled = false;
+                    if (data.success) {
+                        log.innerHTML = '<p><strong>Success:</strong> ' + data.data.message + '</p>';
+                    } else {
+                        log.innerHTML = '<p><strong>Error:</strong> ' + (data.message || 'Unknown error') + '</p>';
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    log.innerHTML = '<p><strong>AJAX Error:</strong> ' + err.message + '</p>';
+                });
+        });
     }
+});
+JS;
 
-    /**
-     * Custom task handler (when clicking manual import in admin)
-     */
-    public function onCustomTask($task)
-    {
-        if ($task === 'importAlto') {
-            $this->runImport();
-
-            $this->app->enqueueMessage(Text::_('PLG_SYSTEM_ALTOIMPORTER_IMPORT_COMPLETE'), 'message');
-            $this->app->redirect(Route::_('index.php?option=com_plugins&view=plugins', false));
-        }
-    }
-
-    public function onAjaxAltoimporterDoImport(): JsonResponse
-    {
-        // Check if this is the admin interface
-        if (!Factory::getApplication()->isClient('administrator')) {
-            return new JsonResponse(null, Text::_('JERROR_ALERTNOAUTHOR'), true);
-        }
-
-        try {
-            // Load the import logic
-            $service = new \Joomla\Plugin\System\Altoimporter\Service\AltoApiService($this->params);
-            $result = $service->importProperties();
-
-            return new JsonResponse([
-                'message' => 'Manual import completed. Imported ' . $result['imported'] . ' properties, updated ' . $result['updated'] . '.'
-            ]);
-        } catch (\Throwable $e) {
-            return new JsonResponse(null, 'Import failed: ' . $e->getMessage(), true);
-        }
+        $doc->addScriptDeclaration($js);
     }
 }
