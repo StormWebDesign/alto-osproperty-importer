@@ -16,7 +16,6 @@
     <files>
         <filename plugin="altoimporter">altoimporter.php</filename>
         <filename>script.php</filename>
-        <folder>fields</folder>
         <folder>services</folder>
         <folder>src/Models</folder>
         <folder>src/Extension/Altoimporter/Task</folder>
