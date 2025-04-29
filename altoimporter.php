@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @package     Joomla.Plugin
  * @subpackage  System.Altoimporter
@@ -13,40 +12,18 @@ namespace Joomla\Plugin\System\Altoimporter;
 
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\Factory;
-use Joomla\CMS\Form\FormHelper;
-use Joomla\CMS\MVC\Model\FormModel;
-use Joomla\CMS\MVC\Factory\MVCFactoryAwareTrait;
+use Joomla\CMS\Uri\Uri;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Response\JsonResponse;
-use Joomla\CMS\Uri\Uri;
-use Joomla\CMS\Application\CMSApplication;
-use Joomla\CMS\Form\Form;
-
 use Joomla\Plugin\System\Altoimporter\Services\AltoApiService;
 
 class PlgSystemAltoimporter extends CMSPlugin
 {
-    use MVCFactoryAwareTrait;
-
     protected $app;
     protected $autoloadLanguage = true;
 
     /**
-     * Register our custom form field path.
-     */
-    public function onContentPrepareForm(Form $form, $data)
-    {
-        // Only for the plugin edit form
-        if ($form->getName() === 'com_plugins.plugin') {
-            $plugin = $form->getValue('element');
-            if ($plugin === 'altoimporter') {
-                FormHelper::addFieldPath(__DIR__ . '/fields');
-            }
-        }
-    }
-
-    /**
-     * Scheduled Task entry point.
+     * Run via Scheduled Task
      */
     public function onAltoimporterTaskImport()
     {
@@ -54,23 +31,26 @@ class PlgSystemAltoimporter extends CMSPlugin
     }
 
     /**
-     * AJAX manual import entry point.
+     * Run via Manual Import AJAX call
      */
     public function onAjaxAltoimporterDoImport()
     {
-        try {
+        try
+        {
             $this->performImport();
             return new JsonResponse(['message' => Text::_('PLG_SYSTEM_ALTOIMPORTER_IMPORT_SUCCESS')]);
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e)
+        {
             return new JsonResponse($e->getMessage(), true);
         }
     }
 
     /**
-     * Core import logic.
+     * Perform the property import
      *
-     * @return  bool
-     * @throws  \RuntimeException
+     * @return bool
+     * @throws \RuntimeException
      */
     protected function performImport(): bool
     {
@@ -80,11 +60,12 @@ class PlgSystemAltoimporter extends CMSPlugin
         $password = trim($params->get('password', ''));
         $logLevel = $params->get('log_level', 'info');
 
-        if (!$apiKey || !$username || !$password) {
+        if (!$apiKey || !$username || !$password)
+        {
             throw new \RuntimeException(Text::_('PLG_SYSTEM_ALTOIMPORTER_ERR_CREDENTIALS'));
         }
 
-        // Instantiate and run the service
+        // Use the API Service to do the import
         $service = new AltoApiService($apiKey, $username, $password, $logLevel);
         $service->importAllProperties();
 
@@ -92,52 +73,64 @@ class PlgSystemAltoimporter extends CMSPlugin
     }
 
     /**
-     * Inject the JS for the manual import button when editing plugin params.
+     * Inject the Manual Import button into the plugin settings dynamically
      */
     public function onBeforeCompileHead()
     {
-        // Only in admin & on our plugin edit view
-        if (!$this->app->isClient('administrator')) {
+        if (!$this->app->isClient('administrator'))
+        {
             return;
         }
 
         $input = $this->app->input;
         if (
-            $input->getCmd('option') !== 'com_plugins'
-            || $input->getCmd('plugin') !== 'altoimporter'
+            $input->getCmd('option') !== 'com_plugins' ||
+            $input->getCmd('plugin') !== 'altoimporter'
         ) {
             return;
         }
 
-        $doc     = Factory::getDocument();
+        $doc = Factory::getDocument();
         $ajaxUrl = Uri::base() . 'index.php?option=com_ajax&plugin=altoimporter&group=system&format=json&task=doImport';
 
         $js = <<<JS
 document.addEventListener('DOMContentLoaded', function () {
-    const btn = document.getElementById('btn-alto-manual-import');
-    const log = document.getElementById('alto-import-log');
-    if (!btn) return;
+    const fieldset = document.querySelector('fieldset.adminform > .control-group:last-child .controls');
+    if (fieldset) {
+        const button = document.createElement('button');
+        button.className = 'btn btn-primary';
+        button.textContent = 'Run Manual Import';
+        button.style.marginTop = '10px';
+        fieldset.appendChild(button);
 
-    btn.addEventListener('click', function () {
-        btn.disabled = true;
-        log.innerHTML = '<p>Running import...</p>';
-        fetch('$ajaxUrl')
-            .then(r => r.json())
-            .then(data => {
-                btn.disabled = false;
-                if (data.success) {
-                    log.innerHTML = '<p><strong>Success:</strong> ' + data.data.message + '</p>';
-                } else {
-                    log.innerHTML = '<p><strong>Error:</strong> ' + (data.message||'Unknown error') + '</p>';
-                }
-            })
-            .catch(err => {
-                btn.disabled = false;
-                log.innerHTML = '<p><strong>AJAX Error:</strong> ' + err.message + '</p>';
-            });
-    });
+        const log = document.createElement('div');
+        log.id = 'alto-import-log';
+        log.style.marginTop = '10px';
+        fieldset.appendChild(log);
+
+        button.addEventListener('click', function () {
+            button.disabled = true;
+            log.innerHTML = '<p>Import started...</p>';
+
+            fetch('$ajaxUrl')
+                .then(response => response.json())
+                .then(data => {
+                    button.disabled = false;
+                    if (data.success) {
+                        log.innerHTML = '<p><strong>Success:</strong> ' + data.data.message + '</p>';
+                    } else {
+                        log.innerHTML = '<p><strong>Error:</strong> ' + (data.message || 'Unknown error') + '</p>';
+                    }
+                })
+                .catch(error => {
+                    button.disabled = false;
+                    log.innerHTML = '<p><strong>AJAX Error:</strong> ' + error.message + '</p>';
+                });
+        });
+    }
 });
 JS;
+
         $doc->addScriptDeclaration($js);
     }
 }
