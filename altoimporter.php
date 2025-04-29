@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     Joomla.Plugin
  * @subpackage  System.Altoimporter
@@ -36,9 +37,11 @@ class PlgSystemAltoimporter extends CMSPlugin
     public function onContentPrepareForm(Form $form, $data)
     {
         // Only for the plugin edit form
-        if ($form->getName() === 'com_plugins.plugin')
-        {
-            FormHelper::addFieldPath(__DIR__ . '/fields');
+        if ($form->getName() === 'com_plugins.plugin') {
+            $plugin = $form->getValue('element');
+            if ($plugin === 'altoimporter') {
+                FormHelper::addFieldPath(__DIR__ . '/fields');
+            }
         }
     }
 
@@ -55,13 +58,10 @@ class PlgSystemAltoimporter extends CMSPlugin
      */
     public function onAjaxAltoimporterDoImport()
     {
-        try
-        {
+        try {
             $this->performImport();
             return new JsonResponse(['message' => Text::_('PLG_SYSTEM_ALTOIMPORTER_IMPORT_SUCCESS')]);
-        }
-        catch (\Exception $e)
-        {
+        } catch (\Exception $e) {
             return new JsonResponse($e->getMessage(), true);
         }
     }
@@ -80,8 +80,7 @@ class PlgSystemAltoimporter extends CMSPlugin
         $password = trim($params->get('password', ''));
         $logLevel = $params->get('log_level', 'info');
 
-        if (!$apiKey || !$username || !$password)
-        {
+        if (!$apiKey || !$username || !$password) {
             throw new \RuntimeException(Text::_('PLG_SYSTEM_ALTOIMPORTER_ERR_CREDENTIALS'));
         }
 
@@ -98,15 +97,15 @@ class PlgSystemAltoimporter extends CMSPlugin
     public function onBeforeCompileHead()
     {
         // Only in admin & on our plugin edit view
-        if (!$this->app->isClient('administrator'))
-        {
+        if (!$this->app->isClient('administrator')) {
             return;
         }
 
         $input = $this->app->input;
-        if ($input->getCmd('option') !== 'com_plugins'
-         || $input->getCmd('plugin') !== 'altoimporter')
-        {
+        if (
+            $input->getCmd('option') !== 'com_plugins'
+            || $input->getCmd('plugin') !== 'altoimporter'
+        ) {
             return;
         }
 
