@@ -16,17 +16,32 @@ use Joomla\CMS\Language\Text;
 
 class JFormFieldImportbutton extends FormField
 {
+    /**
+     * The form field type.
+     *
+     * Must match the <field type="importbutton" /> in the XML.
+     *
+     * @var  string
+     */
     protected $type = 'importbutton';
 
+    /**
+     * Method to get the form field input markup.
+     *
+     * @return  string
+     */
     protected function getInput()
     {
+        // Load jQuery
         HTMLHelper::_('jquery.framework');
 
         $buttonId = 'btn-alto-manual-import';
         $logId    = 'alto-import-log';
 
+        // AJAX endpoint
         $ajaxUrl = Uri::base() . 'index.php?option=com_ajax&plugin=altoimporter&group=system&format=json&task=doImport';
 
+        // Inline JS
         $script = <<<JS
 document.addEventListener('DOMContentLoaded', function () {
     const btn = document.getElementById('$buttonId');
@@ -53,9 +68,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 JS;
-
         Factory::getDocument()->addScriptDeclaration($script);
 
+        // Button + log container
         return '
             <button class="btn btn-primary" type="button" id="' . $buttonId . '">
                 ' . Text::_('PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT') . '

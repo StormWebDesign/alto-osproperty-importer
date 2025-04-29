@@ -16,19 +16,10 @@
     <files>
         <filename plugin="altoimporter">altoimporter.php</filename>
         <filename>script.php</filename>
-
         <folder>fields</folder>
-
-        <!-- API Service -->
         <folder>services</folder>
-
-        <!-- Eloquent Models -->
         <folder>src/Models</folder>
-
-        <!-- Scheduled Task -->
         <folder>src/Extension/Altoimporter/Task</folder>
-
-        <!-- Admin UI -->
         <folder>tmpl</folder>
     </files>
 
@@ -61,7 +52,7 @@
                     type="password"
                     label="PLG_SYSTEM_ALTOIMPORTER_PASSWORD"
                     description="PLG_SYSTEM_ALTOIMPORTER_PASSWORD_DESC"
-                    showon="basic"
+                    required="true"
                 />
                 <field
                     name="log_level"
@@ -78,11 +69,9 @@
                 </field>
                 <field
                     name="manual_import"
-                    type="spacer"
+                    type="importbutton"
                     label="PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT"
                     description="PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT_DESC"
-                    hr="true"
-                    class="btn-alto-import"
                 />
             </fieldset>
         </fields>
