@@ -1,64 +1,91 @@
-<?php
-namespace Joomla\Plugin\System\Altoimporter;
-
-\defined('_JEXEC') or die;
-
-use Joomla\CMS\Plugin\CMSPlugin;
-use Joomla\CMS\Factory;
-use Joomla\CMS\Form\FormHelper;
-use Joomla\CMS\Response\JsonResponse;
-use Joomla\CMS\Uri\Uri;
-use Joomla\CMS\Language\Text;
 use Joomla\CMS\Form\Form;
-use Joomla\Plugin\System\Altoimporter\Services\AltoApiService;
+use Joomla\CMS\Form\FormHelper;
+use Joomla\CMS\HTML\HTMLHelper;
+use Joomla\CMS\Uri\Uri;
 
-class PlgSystemAltoimporter extends CMSPlugin
+// already present:
+// use Joomla\CMS\Factory;
+// use Joomla\CMS\Response\JsonResponse;
+// etc.
+
+public function onContentPrepareForm(Form $form, $data)
 {
-    protected $app;
-    protected $autoloadLanguage = true;
-
-    public function onContentPrepareForm(Form $form, $data)
+    if ($form->getName() !== 'com_plugins.plugin')
     {
-        if ($form->getName() === 'com_plugins.plugin')
-        {
-            FormHelper::addFieldPath(__DIR__ . '/fields');
-        }
+        return;
     }
 
-    public function onAltoimporterTaskImport()
+    $input = $this->app->input;
+    if ($input->getString('plugin') !== 'altoimporter')
     {
-        return $this->performImport();
+        return;
     }
 
-    public function onAjaxAltoimporterDoImport()
+    // Load Joomla's core JS
+    HTMLHelper::_('jquery.framework');
+
+    // Inject manual import button
+    $field = $form->getField('manual_import', 'params');
+    if ($field)
     {
-        try
-        {
-            $this->performImport();
-            return new JsonResponse(['message' => Text::_('PLG_SYSTEM_ALTOIMPORTER_IMPORT_SUCCESS')]);
-        }
-        catch (\Exception $e)
-        {
-            return new JsonResponse($e->getMessage(), true);
-        }
+        $buttonHtml = '
+            <button id="btn-alto-manual-import" class="btn btn-primary" type="button">
+                ' . Text::_('PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT') . '
+            </button>
+            <div id="alto-import-log" style="margin-top: 10px;"></div>
+        ';
+
+        $field->setAttribute('description', $buttonHtml);
+    }
+}
+
+public function onBeforeCompileHead()
+{
+    if (!$this->app->isClient('administrator'))
+    {
+        return;
     }
 
-    protected function performImport(): bool
+    $input = $this->app->input;
+    if (
+        $input->getCmd('option') !== 'com_plugins' ||
+        $input->getCmd('plugin') !== 'altoimporter'
+    )
     {
-        $params = $this->params;
-        $apiKey = trim($params->get('api_key', ''));
-        $username = trim($params->get('username', ''));
-        $password = trim($params->get('password', ''));
-        $logLevel = $params->get('log_level', 'info');
-
-        if (!$apiKey || !$username || !$password)
-        {
-            throw new \RuntimeException(Text::_('PLG_SYSTEM_ALTOIMPORTER_ERR_CREDENTIALS'));
-        }
-
-        $service = new AltoApiService($apiKey, $username, $password, $logLevel);
-        $service->importAllProperties();
-
-        return true;
+        return;
     }
+
+    $doc = Factory::getDocument();
+    $ajaxUrl = Uri::base() . 'index.php?option=com_ajax&plugin=altoimporter&group=system&format=json&task=doImport';
+
+    $js = <<<JS
+document.addEventListener('DOMContentLoaded', function () {
+    const btn = document.getElementById('btn-alto-manual-import');
+    const log = document.getElementById('alto-import-log');
+
+    if (!btn) return;
+
+    btn.addEventListener('click', function () {
+        btn.disabled = true;
+        log.innerHTML = '<p>Import started...</p>';
+
+        fetch('$ajaxUrl')
+            .then(response => response.json())
+            .then(data => {
+                btn.disabled = false;
+                if (data.success) {
+                    log.innerHTML = '<p><strong>Success:</strong> ' + data.data.message + '</p>';
+                } else {
+                    log.innerHTML = '<p><strong>Error:</strong> ' + (data.message || 'Unknown error') + '</p>';
+                }
+            })
+            .catch(error => {
+                btn.disabled = false;
+                log.innerHTML = '<p><strong>AJAX Error:</strong> ' + error.message + '</p>';
+            });
+    });
+});
+JS;
+
+    $doc->addScriptDeclaration($js);
 }
