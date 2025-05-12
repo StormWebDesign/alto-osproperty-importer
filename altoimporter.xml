@@ -46,5 +46,12 @@
       title="PLG_SYSTEM_ALTOIMPORTER_TASK_IMPORT_TITLE"
       description="PLG_SYSTEM_ALTOIMPORTER_TASK_IMPORT_DESC"
     />
+        <task
+            group="system"
+            class="Joomla\Plugin\System\Altoimporter\Extension\Altoimporter\Task\TestTask"
+            name="PLG_SYSTEM_ALTOIMPORTER_TASK_TEST"
+            title="PLG_SYSTEM_ALTOIMPORTER_TASK_TEST_TITLE"
+            description="PLG_SYSTEM_ALTOIMPORTER_TASK_TEST_DESC"
+        />
   </tasks>
 </extension>
