@@ -1,91 +1,134 @@
+<?php
+/**
+ * @package     Joomla.Plugin
+ * @subpackage  System.Altoimporter
+ * @copyright   Copyright (C) 2025 Storm Web Design
+ * @license     GNU General Public License version 2 or later
+ */
+
+namespace Joomla\Plugin\System\Altoimporter;
+
+\defined('_JEXEC') or die;
+
+use Joomla\CMS\Plugin\CMSPlugin;
+use Joomla\CMS\Factory;
+use Joomla\CMS\Response\JsonResponse;
+use Joomla\CMS\Uri\Uri;
+use Joomla\CMS\Application\CMSApplication;
 use Joomla\CMS\Form\Form;
 use Joomla\CMS\Form\FormHelper;
+use Joomla\CMS\Language\Text;
+use Joomla\CMS\Document\HtmlDocument;
 use Joomla\CMS\HTML\HTMLHelper;
-use Joomla\CMS\Uri\Uri;
+use Joomla\CMS\MVC\Factory\MVCFactoryAwareTrait;
 
-// already present:
-// use Joomla\CMS\Factory;
-// use Joomla\CMS\Response\JsonResponse;
-// etc.
+use Joomla\Plugin\System\Altoimporter\Service\AltoApiService;
 
-public function onContentPrepareForm(Form $form, $data)
+final class PlgSystemAltoimporter extends CMSPlugin
 {
-    if ($form->getName() !== 'com_plugins.plugin')
+    use MVCFactoryAwareTrait;
+
+    protected CMSApplication $app;
+    protected bool $autoloadLanguage = true;
+
+    /**
+     * Adds the custom field path for our manual import button
+     */
+    public function onContentPrepareForm(Form $form, $data): void
     {
-        return;
+        if ($form->getName() === 'com_plugins.plugin')
+        {
+            FormHelper::addFieldPath(__DIR__ . '/src/Field');
+        }
     }
 
-    $input = $this->app->input;
-    if ($input->getString('plugin') !== 'altoimporter')
+    /**
+     * Injects JS when viewing this plugin in admin
+     */
+    public function onBeforeCompileHead(): void
     {
-        return;
-    }
+        if (!$this->app->isClient('administrator'))
+        {
+            return;
+        }
 
-    // Load Joomla's core JS
-    HTMLHelper::_('jquery.framework');
+        $input = $this->app->getInput();
 
-    // Inject manual import button
-    $field = $form->getField('manual_import', 'params');
-    if ($field)
-    {
-        $buttonHtml = '
-            <button id="btn-alto-manual-import" class="btn btn-primary" type="button">
-                ' . Text::_('PLG_SYSTEM_ALTOIMPORTER_MANUAL_IMPORT') . '
-            </button>
-            <div id="alto-import-log" style="margin-top: 10px;"></div>
-        ';
+        if (
+            $input->getCmd('option') === 'com_plugins'
+            && $input->getCmd('plugin') === 'altoimporter'
+        )
+        {
+            /** @var HtmlDocument $doc */
+            $doc = Factory::getDocument();
+            $ajaxUrl = Uri::base() . 'index.php?option=com_ajax&plugin=altoimporter&group=system&format=json&task=doImport';
 
-        $field->setAttribute('description', $buttonHtml);
-    }
-}
+            $script = <<<JS
+window.Joomla = window.Joomla || {};
+Joomla.altoImportManualRun = function () {
+    const btn = document.querySelector('[name="jform[params][manual_import]"]');
+    btn.disabled = true;
 
-public function onBeforeCompileHead()
-{
-    if (!$this->app->isClient('administrator'))
-    {
-        return;
-    }
-
-    $input = $this->app->input;
-    if (
-        $input->getCmd('option') !== 'com_plugins' ||
-        $input->getCmd('plugin') !== 'altoimporter'
-    )
-    {
-        return;
-    }
-
-    $doc = Factory::getDocument();
-    $ajaxUrl = Uri::base() . 'index.php?option=com_ajax&plugin=altoimporter&group=system&format=json&task=doImport';
-
-    $js = <<<JS
-document.addEventListener('DOMContentLoaded', function () {
-    const btn = document.getElementById('btn-alto-manual-import');
-    const log = document.getElementById('alto-import-log');
-
-    if (!btn) return;
-
-    btn.addEventListener('click', function () {
-        btn.disabled = true;
-        log.innerHTML = '<p>Import started...</p>';
-
-        fetch('$ajaxUrl')
-            .then(response => response.json())
-            .then(data => {
-                btn.disabled = false;
-                if (data.success) {
-                    log.innerHTML = '<p><strong>Success:</strong> ' + data.data.message + '</p>';
-                } else {
-                    log.innerHTML = '<p><strong>Error:</strong> ' + (data.message || 'Unknown error') + '</p>';
-                }
-            })
-            .catch(error => {
-                btn.disabled = false;
-                log.innerHTML = '<p><strong>AJAX Error:</strong> ' + error.message + '</p>';
-            });
-    });
-});
+    fetch('$ajaxUrl')
+        .then(res => res.json())
+        .then(data => {
+            alert(data.success ? 'Import Success' : 'Import Failed: ' + data.message);
+            btn.disabled = false;
+        })
+        .catch(err => {
+            alert('Error: ' + err.message);
+            btn.disabled = false;
+        });
+};
 JS;
 
-    $doc->addScriptDeclaration($js);
+            $doc->addScriptDeclaration($script);
+        }
+    }
+
+    /**
+     * AJAX trigger from the manual import button
+     */
+    public function onAjaxAltoimporterDoImport(): JsonResponse
+    {
+        try
+        {
+            $this->runImport();
+            return new JsonResponse(['message' => Text::_('PLG_SYSTEM_ALTOIMPORTER_IMPORT_SUCCESS')]);
+        }
+        catch (\Throwable $e)
+        {
+            return new JsonResponse($e->getMessage(), true);
+        }
+    }
+
+    /**
+     * Scheduled Task entry point
+     */
+    public function onAltoimporterTaskImport(): bool
+    {
+        return $this->runImport();
+    }
+
+    /**
+     * Shared logic for both manual and scheduled import
+     */
+    private function runImport(): bool
+    {
+        $params = $this->params;
+
+        $apiKey   = trim($params->get('api_key'));
+        $username = trim($params->get('username'));
+        $password = trim($params->get('password'));
+
+        if (!$apiKey || !$username || !$password)
+        {
+            throw new \RuntimeException(Text::_('PLG_SYSTEM_ALTOIMPORTER_ERR_CREDENTIALS'));
+        }
+
+        $service = new AltoApiService($apiKey, $username, $password);
+        $service->importAllProperties();
+
+        return true;
+    }
 }
