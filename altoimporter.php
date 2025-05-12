@@ -1,134 +1,106 @@
 <?php
-/**
- * @package     Joomla.Plugin
- * @subpackage  System.Altoimporter
- * @copyright   Copyright (C) 2025 Storm Web Design
- * @license     GNU General Public License version 2 or later
- */
-
 namespace Joomla\Plugin\System\Altoimporter;
 
 \defined('_JEXEC') or die;
 
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\Factory;
-use Joomla\CMS\Response\JsonResponse;
-use Joomla\CMS\Uri\Uri;
-use Joomla\CMS\Application\CMSApplication;
-use Joomla\CMS\Form\Form;
 use Joomla\CMS\Form\FormHelper;
 use Joomla\CMS\Language\Text;
-use Joomla\CMS\Document\HtmlDocument;
-use Joomla\CMS\HTML\HTMLHelper;
-use Joomla\CMS\MVC\Factory\MVCFactoryAwareTrait;
+use Joomla\CMS\Response\JsonResponse;
+use Joomla\CMS\Uri\Uri;
 
-use Joomla\Plugin\System\Altoimporter\Service\AltoApiService;
+use Joomla\Plugin\System\Altoimporter\Services\AltoApiService;
 
-final class PlgSystemAltoimporter extends CMSPlugin
+class PlgSystemAltoimporter extends CMSPlugin
 {
-    use MVCFactoryAwareTrait;
+    protected $autoloadLanguage = true;
 
-    protected CMSApplication $app;
-    protected bool $autoloadLanguage = true;
-
-    /**
-     * Adds the custom field path for our manual import button
-     */
-    public function onContentPrepareForm(Form $form, $data): void
+    public function onContentPrepareForm(\Joomla\CMS\Form\Form $form, $data)
     {
         if ($form->getName() === 'com_plugins.plugin')
         {
-            FormHelper::addFieldPath(__DIR__ . '/src/Field');
+            FormHelper::addFieldPath(__DIR__ . '/fields');
         }
     }
 
-    /**
-     * Injects JS when viewing this plugin in admin
-     */
-    public function onBeforeCompileHead(): void
+    // Scheduled Task
+    public function onAltoimporterTaskImport()
     {
-        if (!$this->app->isClient('administrator'))
-        {
-            return;
-        }
-
-        $input = $this->app->getInput();
-
-        if (
-            $input->getCmd('option') === 'com_plugins'
-            && $input->getCmd('plugin') === 'altoimporter'
-        )
-        {
-            /** @var HtmlDocument $doc */
-            $doc = Factory::getDocument();
-            $ajaxUrl = Uri::base() . 'index.php?option=com_ajax&plugin=altoimporter&group=system&format=json&task=doImport';
-
-            $script = <<<JS
-window.Joomla = window.Joomla || {};
-Joomla.altoImportManualRun = function () {
-    const btn = document.querySelector('[name="jform[params][manual_import]"]');
-    btn.disabled = true;
-
-    fetch('$ajaxUrl')
-        .then(res => res.json())
-        .then(data => {
-            alert(data.success ? 'Import Success' : 'Import Failed: ' + data.message);
-            btn.disabled = false;
-        })
-        .catch(err => {
-            alert('Error: ' + err.message);
-            btn.disabled = false;
-        });
-};
-JS;
-
-            $doc->addScriptDeclaration($script);
-        }
+        return $this->performImport();
     }
 
-    /**
-     * AJAX trigger from the manual import button
-     */
-    public function onAjaxAltoimporterDoImport(): JsonResponse
+    // AJAX manual import
+    public function onAjaxAltoimporterDoImport()
     {
         try
         {
-            $this->runImport();
+            $this->performImport();
             return new JsonResponse(['message' => Text::_('PLG_SYSTEM_ALTOIMPORTER_IMPORT_SUCCESS')]);
         }
-        catch (\Throwable $e)
+        catch (\Exception $e)
         {
             return new JsonResponse($e->getMessage(), true);
         }
     }
 
-    /**
-     * Scheduled Task entry point
-     */
-    public function onAltoimporterTaskImport(): bool
+    protected function performImport(): bool
     {
-        return $this->runImport();
-    }
-
-    /**
-     * Shared logic for both manual and scheduled import
-     */
-    private function runImport(): bool
-    {
-        $params = $this->params;
-
-        $apiKey   = trim($params->get('api_key'));
-        $username = trim($params->get('username'));
-        $password = trim($params->get('password'));
-
-        if (!$apiKey || !$username || !$password)
+        $p = $this->params;
+        if (!$p->get('api_key') || !$p->get('username') || !$p->get('password'))
         {
             throw new \RuntimeException(Text::_('PLG_SYSTEM_ALTOIMPORTER_ERR_CREDENTIALS'));
         }
 
-        $service = new AltoApiService($apiKey, $username, $password);
+        $service = new AltoApiService(
+            $p->get('api_key'),
+            $p->get('username'),
+            $p->get('password'),
+            $p->get('log_level', 'info')
+        );
         $service->importAllProperties();
-
         return true;
+    }
+
+    public function onBeforeCompileHead()
+    {
+        if (!$this->app->isClient('administrator'))
+        {
+            return;
+        }
+        $in = $this->app->input;
+        if ($in->getCmd('option') !== 'com_plugins'
+         || $in->getCmd('plugin') !== 'altoimporter')
+        {
+            return;
+        }
+
+        $doc     = Factory::getDocument();
+        $ajaxUrl = Uri::base() . 'index.php?option=com_ajax&plugin=altoimporter&group=system&format=json&task=doImport';
+
+        $js = <<<JS
+document.addEventListener('DOMContentLoaded', function(){
+  var btn = document.getElementById('btn-alto-manual-import'),
+      log = document.getElementById('alto-import-log');
+  if (!btn) return;
+  btn.addEventListener('click', function(){
+    btn.disabled = true;
+    log.innerHTML = '<p>Import started…</p>';
+    fetch('$ajaxUrl')
+      .then(r => r.json())
+      .then(data => {
+        btn.disabled = false;
+        log.innerHTML = data.success
+          ? '<p><strong>Success:</strong> '+data.data.message+'</p>'
+          : '<p><strong>Error:</strong> '+(data.message||'Unknown')+'</p>';
+      })
+      .catch(e => {
+        btn.disabled = false;
+        log.innerHTML = '<p><strong>AJAX Error:</strong> '+e.message+'</p>';
+      });
+  });
+});
+JS;
+        $doc->addScriptDeclaration($js);
     }
 }
