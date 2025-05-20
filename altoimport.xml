@@ -3,13 +3,55 @@
   <name>PLG_CONSOLE_ALTOIMPORT</name>
   <author>Russell English</author>
   <version>1.0.0</version>
+
   <files>
     <filename plugin="altoimport">altoimport.php</filename>
-    <filename>config.xml</filename>
     <filename>script.php</filename>
     <folder>src</folder>
   </files>
+
+  <namespace path="src">Joomla\Plugin\Console\Altoimport</namespace>
+
   <config>
-    <fields name="params" form="config.xml" />
+    <fields name="params">
+      <fieldset name="basic" label="Alto Import Settings">
+        <field
+          name="dataFeedId"
+          type="text"
+          label="Data Feed ID"
+          description="Your Alto DATAFEEDID"
+          required="true"
+        />
+        <field
+          name="username"
+          type="text"
+          label="API Username"
+          description="Your Alto API username"
+          required="true"
+        />
+        <field
+          name="password"
+          type="password"
+          label="API Password"
+          description="Your Alto API password"
+          required="true"
+        />
+        <field
+          name="import_mode"
+          type="list"
+          label="Import Mode"
+          description="Choose full vs. delta import"
+          default="delta"
+        >
+          <option value="full">Full Import</option>
+          <option value="delta">Delta Import</option>
+        </field>
+        <field
+          name="lastSync"
+          type="hidden"
+          default=""
+        />
+      </fieldset>
+    </fields>
   </config>
 </extension>
