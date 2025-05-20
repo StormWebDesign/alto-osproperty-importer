@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="system" method="upgrade" version="5.0">
+    <name>PLG_SYSTEM_ALTOIMPORTER</name>
+    <author>Russell English</author>
+    <creationDate>2025-04-29</creationDate>
+    <copyright>Copyright (C) 2025 Storm Web Design</copyright>
+    <license>GPL-2.0-or-later</license>
+    <version>1.0.0</version>
+    <description>PLG_SYSTEM_ALTOIMPORTER_DESC</description>
+    <namespace path="src">Joomla\Plugin\System\Altoimporter</namespace>
+
+    <scriptfile>script.php</scriptfile>
+
+    <files>
+        <filename plugin="altoimporter">altoimporter.php</filename>
+        <filename>script.php</filename>
+        <folder>src</folder>
+    </files>
+
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field name="dataFeedId" type="text" label="Data Feed ID" />
+                <field name="username"   type="text" label="API Username" />
+                <field name="password"   type="password" label="API Password" />
+                <field name="import_mode" type="list" default="delta">
+                    <option value="full">Full Import</option>
+                    <option value="delta">Delta Import</option>
+                </field>
+                <field name="lastSync" type="hidden" default="" />
+            </fieldset>
+        </fields>
+    </config>
+</extension>
