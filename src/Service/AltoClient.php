@@ -1,7 +1,7 @@
 <?php
-namespace Joomla\\Plugin\\Osproperty\\Altoimport\\Service;
+namespace Joomla\Plugin\Osproperty\Altoimport\Service;
 
-use Joomla\\Http\\HttpFactory;
+use Joomla\Http\HttpFactory;
 
 class AltoClient
 {
@@ -23,12 +23,12 @@ class AltoClient
         // Perform API authentication and return token
     }
 
-    public function getChangedProperties(\\DateTime $since): array
+    public function getChangedProperties(\DateTime $since): array
     {
         // Fetch list of changed properties
     }
 
-    public function getProperty(string $propId): \\SimpleXMLElement
+    public function getProperty(string $propId): \SimpleXMLElement
     {
         // Fetch full property XML
     }

@@ -1,8 +1,8 @@
 <?php
 defined('_JEXEC') or die;
 
-use Joomla\\CMS\\Plugin\\CMSPlugin;
-use Joomla\\CMS\\Factory;
+use Joomla\CMS\Plugin\CMSPlugin;
+use Joomla\CMS\Factory;
 
 class PlgOspropertyAltoimport extends CMSPlugin
 {
@@ -13,8 +13,8 @@ class PlgOspropertyAltoimport extends CMSPlugin
 
     protected function sync(): void
     {
-        $client = new \\Joomla\\Plugin\\Osproperty\\Altoimport\\Service\\AltoClient($this->params);
-        $sync   = new \\Joomla\\Plugin\\Osproperty\\Altoimport\\Service\\PropertySync($client);
+        $client = new \Joomla\Plugin\Osproperty\Altoimport\Service\AltoClient($this->params);
+        $sync   = new \Joomla\Plugin\Osproperty\Altoimport\Service\PropertySync($client);
         $sync->syncDelta();
     }
 }

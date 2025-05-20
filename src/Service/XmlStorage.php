@@ -1,7 +1,7 @@
 <?php
-namespace Joomla\\Plugin\\Osproperty\\Altoimport\\Service;
+namespace Joomla\Plugin\Osproperty\Altoimport\Service;
 
-use Joomla\\CMS\\Factory;
+use Joomla\CMS\Factory;
 
 class XmlStorage
 {

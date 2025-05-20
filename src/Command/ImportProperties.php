@@ -1,11 +1,11 @@
 <?php
-namespace Joomla\\Plugin\\Osproperty\\Altoimport\\Command;
+namespace Joomla\Plugin\Osproperty\Altoimport\Command;
 
-use Joomla\\Console\\Command\\Command;
-use Symfony\\Component\\Console\\Input\\InputInterface;
-use Symfony\\Component\\Console\\Output\\OutputInterface;
-use Symfony\\Component\\Console\\Input\\InputOption;
-use Joomla\\CMS\\Factory;
+use Joomla\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Joomla\CMS\Factory;
 
 class ImportProperties extends Command
 {
@@ -23,8 +23,8 @@ class ImportProperties extends Command
         $app    = Factory::getApplication();
         $plugin = $app->getPlugin('osproperty', 'altoimport');
         $params = json_decode($plugin->params);
-        $client = new \\Joomla\\Plugin\\Osproperty\\Altoimport\\Service\\AltoClient($params);
-        $sync   = new \\Joomla\\Plugin\\Osproperty\\Altoimport\\Service\\PropertySync($client);
+        $client = new \Joomla\Plugin\Osproperty\Altoimport\Service\AltoClient($params);
+        $sync   = new \Joomla\Plugin\Osproperty\Altoimport\Service\PropertySync($client);
 
         if ($input->getOption('full')) {
             $sync->syncAll();

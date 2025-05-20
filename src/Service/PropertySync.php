@@ -1,5 +1,5 @@
 <?php
-namespace Joomla\\Plugin\\Osproperty\\Altoimport\\Service;
+namespace Joomla\Plugin\Osproperty\Altoimport\Service;
 
 class PropertySync
 {
@@ -20,7 +20,7 @@ class PropertySync
         // Delta import logic
     }
 
-    protected function importProperty(\\SimpleXMLElement $xml): void
+    protected function importProperty(\SimpleXMLElement $xml): void
     {
         // Mapping and upsert logic
     }
