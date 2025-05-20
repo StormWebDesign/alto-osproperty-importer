@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" version="5.0" group="console" method="upgrade">
+  <name>PLG_CONSOLE_ALTOIMPORT</name>
+  <author>Russell English</author>
+  <version>1.0.0</version>
+  <files>
+    <filename plugin="altoimport">altoimport.php</filename>
+    <filename>config.xml</filename>
+    <filename>script.php</filename>
+    <folder>src</folder>
+  </files>
+  <config>
+    <fields name="params" form="config.xml" />
+  </config>
+</extension>
