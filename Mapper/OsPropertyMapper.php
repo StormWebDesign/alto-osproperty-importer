@@ -383,7 +383,7 @@ class OsPropertyMapper {
     public static function getOrCreateLookupId(\PDO $db, $tableName, $nameColumn, $nameValue) {
         // Sanitize nameValue for WHERE clause and for display
         $nameValue = \trim($nameValue);
-        if (\empty($nameValue)) {
+        if (empty($nameValue)) {
             \error_log("Attempted to lookup/create " . $tableName . " with empty value for " . $nameColumn);
             return false;
         }
