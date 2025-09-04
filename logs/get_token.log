@@ -1,0 +1,180 @@
+[2025-09-03 15:24:54 Europe/London] [INFO] Starting token acquisition process...
+[2025-09-03 15:24:54 Europe/London] [INFO] Deleted existing token file: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:24:54 Europe/London] [DEBUG] AltoApi initialized with token file path: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:24:54 Europe/London] [DEBUG] Attempting to load token from file: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:24:54 Europe/London] [INFO] Token file does not exist at /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:24:54 Europe/London] [DEBUG] Entering getAccessToken() method.
+[2025-09-03 15:24:54 Europe/London] [INFO] No valid token in memory. Attempting to load from file or acquire new.
+[2025-09-03 15:24:54 Europe/London] [DEBUG] Attempting to load token from file: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:24:54 Europe/London] [INFO] Token file does not exist at /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:24:54 Europe/London] [INFO] No valid token found in memory or file. Attempting to acquire a new token...
+[2025-09-03 15:24:54 Europe/London] [INFO] Attempting token acquisition from URL: https://webservices.vebra.com/export/TudorEAAPI/v13/branch
+[2025-09-03 15:24:54 Europe/London] [DEBUG] Using API Username: Tudor535ADxml
+[2025-09-03 15:24:58 Europe/London] [INFO] Token Acquisition HTTP Code: 401
+[2025-09-03 15:24:58 Europe/London] [INFO] Token Acquisition Curl Error: None
+[2025-09-03 15:24:58 Europe/London] [DEBUG] Token Acquisition Response Headers:
+HTTP/1.1 401 Unauthorized
+Date: Wed, 03 Sep 2025 14:24:58 GMT
+Content-Type: text/html
+Content-Length: 1293
+Connection: keep-alive
+Set-Cookie: AWSALB=xvpmz8KFbm/qorAzVXPEd2cQaS5bfjVOjLvCEXnxrQU9H7P+f1rN2qzBz5FDEUpxUWk2/MaFDm/c0c0OWtbwPJJERFbdjFCt2Q7AErisUe6KMInAdRF2854PD+fY; Expires=Wed, 10 Sep 2025 14:24:54 GMT; Path=/
+Set-Cookie: AWSALBCORS=xvpmz8KFbm/qorAzVXPEd2cQaS5bfjVOjLvCEXnxrQU9H7P+f1rN2qzBz5FDEUpxUWk2/MaFDm/c0c0OWtbwPJJERFbdjFCt2Q7AErisUe6KMInAdRF2854PD+fY; Expires=Wed, 10 Sep 2025 14:24:54 GMT; Path=/; SameSite=None; Secure
+Cache-Control: private
+Server: Microsoft-IIS/10.0
+Set-Cookie: ASP.NET_SessionId=txmfznxhcvkhjxc3f32wplxi; path=/; HttpOnly; SameSite=Lax
+X-AspNet-Version: 4.0.30319
+X-Powered-By: ASP.NET
+
+
+[2025-09-03 15:24:58 Europe/London] [DEBUG] Token Acquisition Response Body (first 500 chars):
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>401 - Unauthorized: Access is denied due to invalid credentials.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-si
+[2025-09-03 15:24:58 Europe/London] [ERROR] Token acquisition failed. HTTP Code: 401. Your username/password might be incorrect or have insufficient permissions. Response: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>401 - Unauthorized: Access is denied due to invalid credentials.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-size:2.4em;margin:0;color:#FFF;}
+h2{font-size:1.7em;margin:0;color:#CC0000;} 
+h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;} 
+#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;
+background-color:#555555;}
+#content{margin:0 0 0 2%;position:relative;}
+.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}
+-->
+</style>
+</head>
+<body>
+<div id="header"><h1>Server Error</h1></div>
+<div id="content">
+ <div class="content-container"><fieldset>
+  <h2>401 - Unauthorized: Access is denied due to invalid credentials.</h2>
+  <h3>You do not have permission to view this directory or page using the credentials that you supplied.</h3>
+ </fieldset></div>
+</div>
+</body>
+</html>
+
+[2025-09-03 15:24:58 Europe/London] [CRITICAL] Failed to get OAuth token: Failed to acquire new OAuth token.
+[2025-09-03 15:24:58 Europe/London] [ERROR] Failed to acquire new token during cron run.
+[2025-09-03 16:04:49 Europe/London] [INFO] Starting token acquisition process...
+[2025-09-03 16:04:49 Europe/London] [INFO] No existing token file found. Proceeding to acquire new token.
+[2025-09-03 16:04:49 Europe/London] [DEBUG] AltoApi initialized with token file path: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 16:04:49 Europe/London] [DEBUG] Attempting to load token from file: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 16:04:49 Europe/London] [INFO] Token file does not exist at /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 16:04:49 Europe/London] [DEBUG] Entering getAccessToken() method.
+[2025-09-03 16:04:49 Europe/London] [INFO] No valid token in memory. Attempting to load from file or acquire new.
+[2025-09-03 16:04:49 Europe/London] [DEBUG] Attempting to load token from file: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 16:04:49 Europe/London] [INFO] Token file does not exist at /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 16:04:49 Europe/London] [INFO] No valid token found in memory or file. Attempting to acquire a new token...
+[2025-09-03 16:04:49 Europe/London] [INFO] Attempting token acquisition from URL: https://webservices.vebra.com/export/TudorEAAPI/v13/branch
+[2025-09-03 16:04:49 Europe/London] [DEBUG] Using API Username: Tudor535ADxml
+[2025-09-03 16:04:52 Europe/London] [INFO] Token Acquisition HTTP Code: 401
+[2025-09-03 16:04:52 Europe/London] [INFO] Token Acquisition Curl Error: None
+[2025-09-03 16:04:52 Europe/London] [DEBUG] Token Acquisition Response Headers:
+HTTP/1.1 401 Unauthorized
+Date: Wed, 03 Sep 2025 15:04:52 GMT
+Content-Type: text/html
+Content-Length: 1293
+Connection: keep-alive
+Set-Cookie: AWSALB=/jtk94JOpzFOevRs6ULSLCBEQ/tW2Wvq0dY1W/PdOu2FPmnqmPsrI6aFlrp9b+aq7QP4PrAVjyhCGD3XYH0K00FPAiSjiB5++0aEBop3z1+0nAiYuBw9k/kUmUkR; Expires=Wed, 10 Sep 2025 15:04:49 GMT; Path=/
+Set-Cookie: AWSALBCORS=/jtk94JOpzFOevRs6ULSLCBEQ/tW2Wvq0dY1W/PdOu2FPmnqmPsrI6aFlrp9b+aq7QP4PrAVjyhCGD3XYH0K00FPAiSjiB5++0aEBop3z1+0nAiYuBw9k/kUmUkR; Expires=Wed, 10 Sep 2025 15:04:49 GMT; Path=/; SameSite=None; Secure
+Cache-Control: private
+Server: Microsoft-IIS/10.0
+Set-Cookie: ASP.NET_SessionId=r2v5to0sruihiahyylmf5fgy; path=/; HttpOnly; SameSite=Lax
+X-AspNet-Version: 4.0.30319
+X-Powered-By: ASP.NET
+
+
+[2025-09-03 16:04:52 Europe/London] [DEBUG] Token Acquisition Response Body (first 500 chars):
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>401 - Unauthorized: Access is denied due to invalid credentials.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-si
+[2025-09-03 16:04:52 Europe/London] [ERROR] Token acquisition failed. HTTP Code: 401. Your username/password might be incorrect or have insufficient permissions. Response: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>401 - Unauthorized: Access is denied due to invalid credentials.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-size:2.4em;margin:0;color:#FFF;}
+h2{font-size:1.7em;margin:0;color:#CC0000;} 
+h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;} 
+#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;
+background-color:#555555;}
+#content{margin:0 0 0 2%;position:relative;}
+.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}
+-->
+</style>
+</head>
+<body>
+<div id="header"><h1>Server Error</h1></div>
+<div id="content">
+ <div class="content-container"><fieldset>
+  <h2>401 - Unauthorized: Access is denied due to invalid credentials.</h2>
+  <h3>You do not have permission to view this directory or page using the credentials that you supplied.</h3>
+ </fieldset></div>
+</div>
+</body>
+</html>
+
+[2025-09-03 16:04:52 Europe/London] [CRITICAL] Failed to get OAuth token: Failed to acquire new OAuth token.
+[2025-09-03 16:04:52 Europe/London] [ERROR] Failed to acquire new token during cron run.
+[2025-09-04 02:00:14 Europe/London] [INFO] Starting token acquisition process...
+[2025-09-04 02:00:14 Europe/London] [INFO] No existing token file found. Proceeding to acquire new token.
+[2025-09-04 02:00:14 Europe/London] [DEBUG] AltoApi initialized with token file path: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-04 02:00:14 Europe/London] [DEBUG] Attempting to load token from file: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-04 02:00:14 Europe/London] [INFO] Token file does not exist at /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-04 02:00:14 Europe/London] [DEBUG] Entering getAccessToken() method.
+[2025-09-04 02:00:14 Europe/London] [INFO] No valid token in memory. Attempting to load from file or acquire new.
+[2025-09-04 02:00:14 Europe/London] [DEBUG] Attempting to load token from file: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-04 02:00:14 Europe/London] [INFO] Token file does not exist at /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-04 02:00:14 Europe/London] [INFO] No valid token found in memory or file. Attempting to acquire a new token...
+[2025-09-04 02:00:14 Europe/London] [INFO] Attempting token acquisition from URL: https://webservices.vebra.com/export/TudorEAAPI/v13/branch
+[2025-09-04 02:00:14 Europe/London] [DEBUG] Using API Username: Tudor535ADxml
+[2025-09-04 02:00:14 Europe/London] [INFO] Token Acquisition HTTP Code: 200
+[2025-09-04 02:00:14 Europe/London] [INFO] Token Acquisition Curl Error: None
+[2025-09-04 02:00:14 Europe/London] [DEBUG] Token Acquisition Response Headers:
+HTTP/1.1 200 OK
+Date: Thu, 04 Sep 2025 01:00:14 GMT
+Content-Type: text/xml; charset=utf-8
+Content-Length: 391
+Connection: keep-alive
+Set-Cookie: AWSALB=PoFCYSEAGTcBTzj6d5z/CcyFcP0E9Yb7hoHhK3ZhQB62b2Txr2Do/7j3+9Hfk2Mu5Y7xSjJIZXZ8URQVlATIW7XPOfX6bvc6Aihe5+nqGemcA4KaKZoi80xC1t4X; Expires=Thu, 11 Sep 2025 01:00:14 GMT; Path=/
+Set-Cookie: AWSALBCORS=PoFCYSEAGTcBTzj6d5z/CcyFcP0E9Yb7hoHhK3ZhQB62b2Txr2Do/7j3+9Hfk2Mu5Y7xSjJIZXZ8URQVlATIW7XPOfX6bvc6Aihe5+nqGemcA4KaKZoi80xC1t4X; Expires=Thu, 11 Sep 2025 01:00:14 GMT; Path=/; SameSite=None; Secure
+Cache-Control: private
+Last-Modified: Thu, 04 Sep 2025 01:00:14 GMT
+Server: Microsoft-IIS/10.0
+Set-Cookie: ASP.NET_SessionId=dlzzwrkaph2ckstcwy1giwre; path=/; HttpOnly; SameSite=Lax
+Token: SUXRLIUAUIPRJDXDCBPNHMRBQRBMCPWNWODGXEIREYTYDTYREM
+X-AspNet-Version: 4.0.30319
+X-Powered-By: ASP.NET
+
+
+[2025-09-04 02:00:14 Europe/London] [DEBUG] Token Acquisition Response Body (first 500 chars):
+<?xml version="1.0" encoding="utf-8"?><branches xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://webservices.vebra.com/export/xsd/v13/exportapi.xsd"><branch><name /><firmid>30179</firmid><branchid>1</branchid><url>https://webservices.vebra.com/export/TudorEAAPI/v13/branch/8191</url></branch></branches>
+[2025-09-04 02:00:14 Europe/London] [INFO] OAuth token saved to /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt. Content (JSON): {"token":"SUXRLIUAUIPRJDXDCBPNHMRBQRBMCPWNWODGXEIREYTYDTYREM","expiry":1756951214}
+[2025-09-04 02:00:14 Europe/London] [INFO] Successfully acquired and saved new OAuth token.
+[2025-09-04 02:00:14 Europe/London] [INFO] Successfully acquired and stored new token.

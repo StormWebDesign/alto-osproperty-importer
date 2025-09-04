@@ -1,33 +1,17 @@
 <?php
-// sync.php - Main script for Alto data synchronization
+// /public_html/cli/alto-sync/sync.php - Main script for Alto data synchronization
 
-// Include the configuration file for database credentials and other settings
+namespace AltoSync; // Declare namespace for this script
+
+// Include necessary files. Note: __DIR__ ensures correct paths relative to this script.
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/Logger.php';        // Logger utility class
+require_once __DIR__ . '/AltoApi.php';        // Alto API communication class
+require_once __DIR__ . '/Mapper/OsPropertyMapper.php'; // OS Property mapping logic
 
-// Set up error logging
-ini_set('log_errors', 1);
-ini_set('error_log', LOGS_DIR . 'alto-sync.log'); // Use LOGS_DIR from config.php
-error_reporting(E_ALL);
-
-// Autoload classes (assuming standard PSR-4 structure for AltoSync namespace)
-spl_autoload_register(function ($class) {
-    $prefix = 'AltoSync\\';
-    $base_dir = __DIR__ . '/';
-    $len = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) {
-        return;
-    }
-    $relative_class = substr($class, $len);
-    // Replace namespace separators with directory separators and append .php
-    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
-    if (file_exists($file)) {
-        require_once $file;
-    }
-});
-
-// Assuming CurlHelper is still in AltoSync/Utils/CurlHelper.php
-use AltoSync\Utils\CurlHelper;
-// Assuming OsPropertyMapper is in AltoSync/Mapper/OsPropertyMapper.php
+// Use statements to import classes into the current namespace
+use AltoSync\Logger;
+use AltoSync\AltoApi;
 use AltoSync\Mapper\OsPropertyMapper;
 
 /**
@@ -35,19 +19,17 @@ use AltoSync\Mapper\OsPropertyMapper;
  */
 class AltoDataSynchronizer
 {
-
     private $db; // PDO connection
-    private $curlHelper;
-    private $mapper;
+    private $altoApi; // Instance of AltoApi
+
+    // The mapper instance is not needed as a class property here
+    // because OsPropertyMapper methods are now static and handle their own DB init.
+
     private $datafeedId;
     private $apiVersion = 'v13';
 
-    // Removed altoUsername and altoPassword as they are no longer used directly for token acquisition here
-    private $oauthToken = null; // Will store the Bearer token loaded from file
-
     public function __construct()
     {
-        // Removed direct usage of ALTO_API_USERNAME and ALTO_API_PASSWORD here
         $this->datafeedId = ALTO_API_DATAFEED_ID;
 
         // Direct PDO connection using constants from config.php
@@ -58,346 +40,285 @@ class AltoDataSynchronizer
                 DB_PASS,
                 [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
             );
+            $this->db->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true); // Ensure buffered queries
+            Logger::log('Database connection established for alto-sync.', 'INFO');
         } catch (\PDOException $e) {
-            error_log("Database connection failed: " . $e->getMessage());
+            Logger::log('Database connection failed in sync.php: ' . $e->getMessage(), 'CRITICAL');
             die("Database connection failed.");
         }
 
-        $this->curlHelper = new CurlHelper();
-        $this->mapper = new OsPropertyMapper();
-
-        // Attempt to load token from file at initialization
-        $this->loadToken();
+        $this->altoApi = new AltoApi(TOKEN_FILE); // Pass token file path to AltoApi
+        // No direct instantiation of OsPropertyMapper here if its methods are static
     }
 
     public function runSynchronization()
     {
-        error_log("------------------------------------------------------------------------");
-        error_log("Alto Data Synchronization started: " . date('Y-m-d H:i:s T'));
-        error_log("------------------------------------------------------------------------");
+        Logger::log('------------------------------------------------------------------------');
+        Logger::log('Alto Data Synchronization started: ' . date('Y-m-d H:i:s T'));
+        Logger::log('------------------------------------------------------------------------');
+        Logger::log('');
 
-        error_log("\nStarting Alto Data Synchronization...");
+        Logger::log('Starting Alto Data Synchronization...', 'INFO');
 
-        // 1. Check for required tables
-        error_log("    Checking for required tables...");
+        // Check for required tables
+        Logger::log("    Checking for required database tables...", 'INFO');
         $this->checkAndCreateTables();
 
         // Ensure we have a valid token before proceeding with API calls
-        if (!$this->oauthToken) {
-            error_log("    No valid OAuth token found. Ensure get_token.php has been run and tokens.txt exists with a valid token.");
-            error_log("    Aborting synchronization.");
+        $accessToken = $this->altoApi->getAccessToken();
+        if (!$accessToken) {
+            Logger::log("    No valid OAuth token found. Ensure get_token.php has been run and tokens.txt exists with a valid token.", 'CRITICAL');
+            Logger::log("    Aborting synchronization.", 'CRITICAL');
             return; // Stop if we can't get a token
         } else {
-            error_log("    Using existing OAuth token from tokens.txt.");
+            Logger::log("    Using existing OAuth token for API calls.", 'INFO');
         }
 
-
         // 1. Fetching branches list
-        error_log("1. Fetching branches list...");
-        $branchApiUrl = ALTO_API_BASE_URL . $this->datafeedId . '/' . $this->apiVersion . '/branch';
-        // Pass a log prefix for better debugging
-        $branchResponse = $this->makeAuthenticatedApiCall($branchApiUrl, 'GET', [], [], 'Branch List - ');
+        Logger::log("1. Fetching branches list...", 'INFO');
+        $branchXmlResponse = $this->altoApi->fetchBranchList(); // Fetch the full XML response
 
-        if ($branchResponse['success']) {
-            $branchXml = $branchResponse['data'];
-            error_log("    API call to branch successful.");
-            $this->processBranches($branchXml);
+        if ($branchXmlResponse) {
+            Logger::log("    API call to branch list successful.", 'INFO');
+            $this->processBranches($branchXmlResponse); // Pass the full XML response to processBranches
         } else {
-            error_log("    Failed to retrieve branches XML. HTTP Code: " . $branchResponse['http_code'] . ", Response: " . $branchResponse['data']);
+            Logger::log("    Failed to retrieve branches XML from Alto API. Check API connection and token.", 'ERROR');
         }
 
         // 2. Fetching property summaries for each branch
-        error_log("2. Fetching property summaries for each branch...");
+        Logger::log("2. Fetching property summaries for each branch...", 'INFO');
         $this->processPropertyListingsForAllBranches();
 
+        // 3. This step is now handled by import.php exclusively.
+        // We ensure data is prepared for import in alto_properties, alto_branches.
+        // The import.php script will then fetch full property details and map.
 
-        // 3. Processing properties marked for import (if any were not processed immediately)
-        error_log("3. Processing properties marked for import...");
-        $this->processPendingProperties();
-
-        error_log("Alto Data Synchronization completed.");
+        Logger::log('Alto Data Synchronization completed. Data prepared for import.', 'INFO');
     }
 
     private function checkAndCreateTables()
     {
-        // Table: ix3gf_alto_branches
-        $createBranchesTableSQL = "
+        // Table: ix3gf_alto_branches (Our internal tracking table for Alto Branch data)
+        $createAltoBranchesTableSQL = "
             CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "alto_branches` (
                 `id` INT AUTO_INCREMENT PRIMARY KEY,
-                `firmid` VARCHAR(255) UNIQUE NOT NULL,
-                `branchid` VARCHAR(255) NOT NULL,
-                `branch_name` VARCHAR(255),
-                `alto_url` VARCHAR(255) UNIQUE, -- Store the Get Branch URL here
+                `alto_branch_id` VARCHAR(255) UNIQUE NOT NULL, -- Alto's unique ID for the branch, or 'FULL_BRANCH_LIST_XML'
+                `xml_data` LONGTEXT NOT NULL,                    -- Stores the full XML response (either full <branches> or individual <branch>)
                 `last_synced` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                INDEX (`firmid`)
+                `processed` TINYINT(1) DEFAULT 0,                -- 0 = pending import, 1 = imported
+                INDEX (`alto_branch_id`),
+                INDEX (`processed`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ";
         try {
-            $stmt = $this->db->prepare($createBranchesTableSQL);
-            $stmt->execute();
-            error_log("Table `" . DB_PREFIX . "alto_branches` checked/created successfully.");
+            $this->db->exec($createAltoBranchesTableSQL);
+            Logger::log("Table `" . DB_PREFIX . "alto_branches` checked/created successfully.", 'INFO');
         } catch (\PDOException $e) {
-            error_log("Error creating table `" . DB_PREFIX . "alto_branches`: " . $e->getMessage());
+            Logger::log("Error creating table `" . DB_PREFIX . "alto_branches`: " . $e->getMessage(), 'ERROR');
         }
 
-        // Table: ix3gf_osrs_xml_details
-        $createXmlDetailsTableSQL = "
-            CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "osrs_xml_details` (
-                `id` INT AUTO_INCREMENT PRIMARY KEY,
-                `alto_id` VARCHAR(255) UNIQUE NOT NULL,
-                `entity_type` VARCHAR(50) NOT NULL, -- e.g., 'branch', 'property'
-                `xml_hash` VARCHAR(64) NOT NULL, -- SHA256 hash of XML data
-                `xml_data` LONGTEXT NOT NULL,
-                `last_modified` DATETIME,
-                `imported` TINYINT(1) DEFAULT 0, -- 0 = pending, 1 = imported
-                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-                `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                INDEX (`entity_type`),
-                INDEX (`imported`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        ";
-        try {
-            $stmt = $this->db->prepare($createXmlDetailsTableSQL);
-            $stmt->execute();
-            error_log("Table `" . DB_PREFIX . "osrs_xml_details` checked/created successfully.");
-        } catch (\PDOException $e) {
-            error_log("Error creating table `" . DB_PREFIX . "osrs_xml_details`: " . $e->getMessage());
-        }
-
-        // Table: ix3gf_alto_properties (NEWLY ADDED)
+        // Table: ix3gf_alto_properties (Our internal tracking table for Alto Property data)
         $createAltoPropertiesTableSQL = "
             CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "alto_properties` (
                 `id` INT AUTO_INCREMENT PRIMARY KEY,
-                `alto_id` VARCHAR(255) UNIQUE NOT NULL,
-                `branch_alto_id` VARCHAR(255) NOT NULL,
+                `alto_property_id` VARCHAR(255) UNIQUE NOT NULL, -- Alto's unique ID for the property
+                `alto_branch_id` VARCHAR(255) NOT NULL,           -- The Alto branch ID this property belongs to
+                `xml_data` LONGTEXT NOT NULL,                     -- Stores the full property summary XML response
                 `last_synced` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                INDEX (`alto_id`),
-                INDEX (`branch_alto_id`)
+                `processed` TINYINT(1) DEFAULT 0,                 -- 0 = pending import, 1 = imported
+                INDEX (`alto_property_id`),
+                INDEX (`alto_branch_id`),
+                INDEX (`processed`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ";
         try {
-            $stmt = $this->db->prepare($createAltoPropertiesTableSQL);
-            $stmt->execute();
-            error_log("Table `" . DB_PREFIX . "alto_properties` checked/created successfully.");
+            $this->db->exec($createAltoPropertiesTableSQL);
+            Logger::log("Table `" . DB_PREFIX . "alto_properties` checked/created successfully.", 'INFO');
         } catch (\PDOException $e) {
-            error_log("Error creating table `" . DB_PREFIX . "alto_properties`: " . $e->getMessage());
+            Logger::log("Error creating table `" . DB_PREFIX . "alto_properties`: " . $e->getMessage(), 'ERROR');
+        }
+
+        // Table: ix3gf_osrs_xml_details (OS Property's native table - we ensure it exists)
+        $createOsrsXmlDetailsTableSQL = "
+            CREATE TABLE IF NOT EXISTS `" . DB_PREFIX . "osrs_xml_details` (
+                `id` INT(11) NOT NULL AUTO_INCREMENT,
+                `xml_id` INT(11) DEFAULT NULL, -- This seems to be a foreign key to #__osrs_xml or property_id
+                `obj_content` TEXT,             -- Where the XML data is stored
+                `imported` TINYINT(1) UNSIGNED ZEROFILL DEFAULT NULL, -- Flag if it's imported by OS Property's internal means
+                PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+        ";
+        try {
+            $this->db->exec($createOsrsXmlDetailsTableSQL);
+            Logger::log("Table `" . DB_PREFIX . "osrs_xml_details` checked/created successfully.", 'INFO');
+        } catch (\PDOException $e) {
+            Logger::log("Error creating table `" . DB_PREFIX . "osrs_xml_details`: " . $e->getMessage(), 'ERROR');
         }
 
 
-        // Check for `alto_id` column in `ix3gf_osrs_properties`
-        $checkPropertyColumnSQL = "
+        // Ensure `alto_id` column in `ix3gf_osrs_properties` (for linking to Alto's property ID)
+        $checkPropertyAltoIdColumnSQL = "
             SELECT COUNT(*)
             FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA = DATABASE()
             AND TABLE_NAME = '" . DB_PREFIX . "osrs_properties'
             AND COLUMN_NAME = 'alto_id';
         ";
-        $stmt = $this->db->prepare($checkPropertyColumnSQL);
+        $stmt = $this->db->prepare($checkPropertyAltoIdColumnSQL);
         $stmt->execute();
-        if ($stmt->fetchColumn() == 0) {
+        $columnExists = $stmt->fetchColumn();
+        $stmt->closeCursor(); // Close cursor immediately
+        unset($stmt); // Explicitly unset statement
+
+        if ($columnExists == 0) {
             $addAltoIdColumnSQL = "
                 ALTER TABLE `" . DB_PREFIX . "osrs_properties`
                 ADD COLUMN `alto_id` VARCHAR(255) UNIQUE NULL AFTER `id`;
             ";
             try {
-                $stmt = $this->db->prepare($addAltoIdColumnSQL);
-                $stmt->execute();
-                error_log("Column `alto_id` added to `ix3gf_osrs_properties`.");
+                $this->db->exec($addAltoIdColumnSQL);
+                Logger::log("Column `alto_id` added to `ix3gf_osrs_properties`.", 'INFO');
             } catch (\PDOException $e) {
-                error_log("Error adding column `alto_id` to `ix3gf_osrs_properties`: " . $e->getMessage());
+                Logger::log("Error adding column `alto_id` to `ix3gf_osrs_properties`: " . $e->getMessage(), 'ERROR');
             }
         } else {
-            error_log("    Column `alto_id` already exists in `ix3gf_osrs_properties`.");
+            Logger::log("    Column `alto_id` already exists in `ix3gf_osrs_properties`.", 'INFO');
         }
-    }
 
+        // Ensure `alto_branch_id` column in `ix3gf_osrs_companies` (for linking to Alto's branch ID)
+        $checkCompanyBranchIdColumnSQL = "
+            SELECT COUNT(*)
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = '" . DB_PREFIX . "osrs_companies'
+            AND COLUMN_NAME = 'alto_branch_id';
+        ";
+        $stmt = $this->db->prepare($checkCompanyBranchIdColumnSQL);
+        $stmt->execute();
+        $columnExists = $stmt->fetchColumn();
+        $stmt->closeCursor(); // Close cursor immediately
+        unset($stmt); // Explicitly unset statement
 
-    /**
-     * Loads the OAuth token from the tokens.txt file.
-     */
-    private function loadToken()
-    {
-        if (file_exists(TOKENS_FILE)) {
-            $token = trim(file_get_contents(TOKENS_FILE));
-            if (!empty($token)) {
-                $this->oauthToken = $token;
-                error_log("    Loaded OAuth token from " . TOKENS_FILE . ".");
-            } else {
-                error_log("    " . TOKENS_FILE . " is empty. Token not loaded.");
-                $this->oauthToken = null;
+        if ($columnExists == 0) {
+            $addAltoBranchIdToCompanySQL = "
+                ALTER TABLE `" . DB_PREFIX . "osrs_companies`
+                ADD COLUMN `alto_branch_id` VARCHAR(255) UNIQUE NULL AFTER `id`;
+            ";
+            try {
+                $this->db->exec($addAltoBranchIdToCompanySQL);
+                Logger::log("Column `alto_branch_id` added to `ix3gf_osrs_companies`.", 'INFO');
+            } catch (\PDOException $e) {
+                Logger::log("Error adding column `alto_branch_id` to `ix3gf_osrs_companies`: " . $e->getMessage(), 'ERROR');
             }
         } else {
-            error_log("    " . TOKENS_FILE . " not found. Token not loaded.");
-            $this->oauthToken = null;
+            Logger::log("    Column `alto_branch_id` already exists in `ix3gf_osrs_companies`.", 'INFO');
+        }
+
+        // Ensure `website` column in `ix3gf_osrs_companies`
+        $checkCompanyWebsiteColumnSQL = "
+            SELECT COUNT(*)
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = '" . DB_PREFIX . "osrs_companies'
+            AND COLUMN_NAME = 'website';
+        ";
+        $stmt = $this->db->prepare($checkCompanyWebsiteColumnSQL);
+        $stmt->execute();
+        $columnExists = $stmt->fetchColumn();
+        $stmt->closeCursor(); // Close cursor immediately
+        unset($stmt); // Explicitly unset statement
+
+        if ($columnExists == 0) {
+            $addWebsiteToCompanySQL = "
+                ALTER TABLE `" . DB_PREFIX . "osrs_companies`
+                ADD COLUMN `website` VARCHAR(255) NULL AFTER `fax`;
+            ";
+            try {
+                $this->db->exec($addWebsiteToCompanySQL);
+                Logger::log("Column `website` added to `ix3gf_osrs_companies`.", 'INFO');
+            } catch (\PDOException $e) {
+                Logger::log("Error adding column `website` to `ix3gf_osrs_companies`: " . $e->getMessage(), 'ERROR');
+            }
+        } else {
+            Logger::log("    Column `website` already exists in `ix3gf_osrs_companies`.", 'INFO');
+        }
+
+        // Ensure `alto_negotiator_id` column in `ix3gf_users` (for linking to Alto's negotiator ID)
+        $checkUserAltoNegotiatorIdColumnSQL = "
+            SELECT COUNT(*)
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = '" . DB_PREFIX . "users'
+            AND COLUMN_NAME = 'alto_negotiator_id';
+        ";
+        $stmt = $this->db->prepare($checkUserAltoNegotiatorIdColumnSQL);
+        $stmt->execute();
+        $columnExists = $stmt->fetchColumn();
+        $stmt->closeCursor(); // Close cursor immediately
+        unset($stmt); // Explicitly unset statement
+
+        if ($columnExists == 0) {
+            $addAltoNegotiatorIdToUsersSQL = "
+                ALTER TABLE `" . DB_PREFIX . "users`
+                ADD COLUMN `alto_negotiator_id` VARCHAR(255) UNIQUE NULL;
+            ";
+            try {
+                $this->db->exec($addAltoNegotiatorIdToUsersSQL);
+                Logger::log("Column `alto_negotiator_id` added to `ix3gf_users`.", 'INFO');
+            } catch (\PDOException $e) {
+                Logger::log("Error adding column `alto_negotiator_id` to `ix3gf_users`: " . $e->getMessage(), 'ERROR');
+            }
+        } else {
+            Logger::log("    Column `alto_negotiator_id` already exists in `ix3gf_users`.", 'INFO');
         }
     }
 
-    // Removed acquireNewToken() - replaced by get_token.php
-    // Removed storeToken() - replaced by get_token.php
-    // Removed getTokenFromResponse() - token is now read directly from file
-
-    /**
-     * Makes an API call with authentication.
-     * @param string $url The API endpoint URL.
-     * @param string $method The HTTP method (e.g., 'GET', 'POST').
-     * @param array $data The data for POST requests.
-     * @param array $headers Additional headers to send.
-     * @param string $log_prefix A prefix for logging purposes.
-     * @return array Containing 'success' (bool), 'data' (string XML or error msg), 'http_code', 'headers'.
-     */
-    private function makeAuthenticatedApiCall($url, $method = 'GET', $data = [], $headers = [], $log_prefix = '')
+    private function processBranches($fullBranchesXmlResponse) // Renamed parameter for clarity
     {
-        $ch = curl_init();
+        // Store the FULL XML response (`<branches>...</branches>`) in alto_branches
+        // under a special ID so import.php can retrieve it and iterate through branches.
+        $altoBranchIdForFullList = 'FULL_BRANCH_LIST_XML';
 
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HEADER, true); // To capture response headers for logging
-        curl_setopt($ch, CURLOPT_ENCODING, ""); // Handle various encodings
-        curl_setopt($ch, CURLOPT_MAXREDIRS, 10);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        // Check if the full branches XML in our tracking table (alto_branches) has changed
+        $stmt = $this->db->prepare("SELECT xml_data FROM `" . DB_PREFIX . "alto_branches` WHERE alto_branch_id = ?");
+        $stmt->execute([$altoBranchIdForFullList]);
+        $existingFullBranchesXml = $stmt->fetchColumn();
+        $stmt->closeCursor(); // Close cursor immediately after fetching
+        unset($stmt); // Explicitly unset statement
 
-        if ($method == 'POST') {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-        }
+        $fullBranchesXmlChanged = (hash('sha256', (string)$existingFullBranchesXml) !== hash('sha256', $fullBranchesXmlResponse));
 
-        // Base64 encode the token before adding to the Authorization header
-        $encodedToken = base64_encode($this->oauthToken);
+        if ($fullBranchesXmlChanged || $existingFullBranchesXml === false) { // If new or changed
+            Logger::log("        Full branches XML changed or new. Updating in " . DB_PREFIX . "alto_branches under ID '" . $altoBranchIdForFullList . "'.", 'INFO');
 
-        // Set the Authorization header correctly, using the raw token directly
-        $curl_headers = [
-            'Host: webservices.vebra.com',
-            'Authorization: Basic ' . $encodedToken, // Use the BASE64 ENCODED token here
-            'Accept: application/xml'
-        ];
-
-        // Merge any additional headers passed to the function
-        if (!empty($headers)) {
-            $curl_headers = array_merge($curl_headers, $headers);
-        }
-
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $curl_headers);
-
-        // You might also want to enable verbose debug for cURL
-        // For debugging specific API calls within sync.php, uncomment these lines temporarily:
-        // curl_setopt($ch, CURLOPT_VERBOSE, true);
-        // $verbose_log_file = fopen(LOGS_DIR . 'curl_verbose_sync_debug.log', 'w+'); // Make sure LOGS_DIR is defined and writable
-        // curl_setopt($ch, CURLOPT_STDERR, $verbose_log_file);
-
-
-        $response = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        $header = substr($response, 0, $header_size);
-        $body = substr($response, $header_size);
-
-        $curl_error = curl_error($ch);
-        curl_close($ch);
-
-        // Close verbose log file if it was opened
-        // if (isset($verbose_log_file) && is_resource($verbose_log_file)) {
-        //     fclose($verbose_log_file);
-        // }
-
-        // Log response details
-        error_log($log_prefix . "URL: " . $url);
-        error_log($log_prefix . "HTTP Code: " . $http_code);
-        error_log($log_prefix . "Curl Error: " . ($curl_error ? $curl_error : 'None'));
-        error_log($log_prefix . "Response Headers:\n" . $header);
-        error_log($log_prefix . "Response Body:\n" . $body);
-
-
-        // Determine success based on HTTP code (2xx series)
-        $success = ($http_code >= 200 && $http_code < 300);
-
-        return [
-            'success' => $success,
-            'data' => $body, // This will be the XML or error message
-            'http_code' => $http_code,
-            'headers' => $header // Useful for further debugging
-        ];
-    }
-
-    private function processBranches($xml)
-    {
-        $simpleXml = \simplexml_load_string($xml);
-        if ($simpleXml === false) {
-            error_log("    Failed to parse branch XML. XML content: " . substr($xml, 0, 500) . '...'); // Log partial XML for debugging
-            return;
-        }
-
-        foreach ($simpleXml->branch as $branchNode) {
-            $firmId = (string)$branchNode->firmid;
-            $branchId = (string)$branchNode->branchid;
-            $branchName = (string)$branchNode->name;
-            $altoUrl = (string)$branchNode->url; // This is the URL to Get Branch details
-
-            error_log("    Processing branch summary ID: " . ($branchId ? $branchId : 'N/A') . " (Firm: " . ($firmId ? $firmId : 'N/A') . ")");
-
-            // Check if XML data for this branch has changed
-            $currentXmlHash = hash('sha256', $branchNode->asXML());
-            $stmt = $this->db->prepare("SELECT xml_hash, imported FROM `" . DB_PREFIX . "osrs_xml_details` WHERE alto_id = ? AND entity_type = 'branch'");
-            $stmt->execute([$branchId]);
-            $xmlDetails = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-            if ($xmlDetails && $xmlDetails['xml_hash'] === $currentXmlHash) {
-                error_log("        Branch " . ($branchId ? $branchId : 'N/A') . " XML unchanged. Skipping storage.");
-                // If XML is unchanged, but not yet imported, mark for import
-                if (isset($xmlDetails['imported']) && $xmlDetails['imported'] == 0) {
-                    // Still call mapBranchDetailsToDatabase to ensure it's processed and marked imported
-                    $this->mapper->mapBranchDetailsToDatabase($branchNode->asXML());
-                    // Update record in osrs_xml_details table to mark as imported
-                    $updateStmt = $this->db->prepare("UPDATE `" . DB_PREFIX . "osrs_xml_details` SET imported = 1, updated_at = NOW() WHERE alto_id = ? AND entity_type = 'branch'");
-                    $updateStmt->execute([$branchId]);
-                    error_log("        Branch " . ($branchId ? $branchId : 'N/A') . " re-mapped and marked as imported.");
-                }
-                // Also ensure alto_branches table is up to date, even if xml_details unchanged.
-                // This will update 'last_synced' and 'alto_url' in alto_branches.
-                $insertAltoBranchStmt = $this->db->prepare("
-                    INSERT INTO `" . DB_PREFIX . "alto_branches` (firmid, branchid, branch_name, alto_url, last_synced)
-                    VALUES (?, ?, ?, ?, NOW())
-                    ON DUPLICATE KEY UPDATE branch_name = VALUES(branch_name), alto_url = VALUES(alto_url), last_synced = NOW()
-                ");
-                $insertAltoBranchStmt->execute([$firmId, $branchId, $branchName, $altoUrl]);
-                continue; // No new XML to store or process unless it was pending.
-            }
-
-            // Store or update in osrs_xml_details (new or changed branch XML)
-            $stmt = $this->db->prepare("
-                INSERT INTO `" . DB_PREFIX . "osrs_xml_details` (alto_id, entity_type, xml_hash, xml_data, last_modified, imported)
-                VALUES (?, 'branch', ?, ?, NOW(), 0)
-                ON DUPLICATE KEY UPDATE xml_hash = VALUES(xml_hash), xml_data = VALUES(xml_data), last_modified = VALUES(last_modified), imported = 0, updated_at = NOW()
-            ");
-            if ($stmt->execute([$branchId, $currentXmlHash, $branchNode->asXML()])) {
-                error_log("        Branch " . ($branchId ? $branchId : 'N/A') . " XML inserted into " . DB_PREFIX . "osrs_xml_details. Marking for import.");
-            } else {
-                error_log("        Failed to insert/update branch " . ($branchId ? $branchId : 'N/A') . " XML in " . DB_PREFIX . "osrs_xml_details: " . json_encode($stmt->errorInfo()));
-            }
-
-            // Also insert/update into `ix3gf_alto_branches` which tracks branch details and their "Get Branch" URLs
             $insertAltoBranchStmt = $this->db->prepare("
-                INSERT INTO `" . DB_PREFIX . "alto_branches` (firmid, branchid, branch_name, alto_url, last_synced)
-                VALUES (?, ?, ?, ?, NOW())
-                ON DUPLICATE KEY UPDATE branch_name = VALUES(branch_name), alto_url = VALUES(alto_url), last_synced = NOW()
+                INSERT INTO `" . DB_PREFIX . "alto_branches` (alto_branch_id, xml_data, last_synced, processed)
+                VALUES (?, ?, NOW(), 0)
+                ON DUPLICATE KEY UPDATE
+                    xml_data = VALUES(xml_data),
+                    last_synced = NOW(),
+                    processed = 0; -- Mark as unprocessed for import
             ");
-            if ($insertAltoBranchStmt->execute([$firmId, $branchId, $branchName, $altoUrl])) {
-                error_log("        Branch " . ($branchId ? $branchId : 'N/A') . " updated in " . DB_PREFIX . "alto_branches.");
-            } else {
-                error_log("        Failed to insert/update branch " . ($branchId ? $branchId : 'N/A') . " in " . DB_PREFIX . "alto_branches: " . json_encode($insertAltoBranchStmt->errorInfo()));
+            try {
+                if ($insertAltoBranchStmt->execute([$altoBranchIdForFullList, $fullBranchesXmlResponse])) {
+                    Logger::log("        Full branches XML stored/updated in " . DB_PREFIX . "alto_branches. Marked for import.", 'INFO');
+                } else {
+                    Logger::log("        Failed to store/update full branches XML in " . DB_PREFIX . "alto_branches: " . json_encode($insertAltoBranchStmt->errorInfo()), 'ERROR');
+                }
+            } catch (\PDOException $e) {
+                Logger::log("        PDO Error storing/updating full branches XML: " . $e->getMessage(), 'ERROR');
             }
-
-
-            // Map branch details to database (if it's new or changed)
-            $this->mapper->mapBranchDetailsToDatabase($branchNode->asXML());
-
-            // After successful mapping, mark as imported in osrs_xml_details
-            $updateStmt = $this->db->prepare("UPDATE `" . DB_PREFIX . "osrs_xml_details` SET imported = 1, updated_at = NOW() WHERE alto_id = ? AND entity_type = 'branch'");
-            if ($updateStmt->execute([$branchId])) {
-                error_log("        Branch " . ($branchId ? $branchId : 'N/A') . " re-mapped and marked as imported.");
-            } else {
-                error_log("        Failed to mark branch " . ($branchId ? $branchId : 'N/A') . " as imported: " . json_encode($updateStmt->errorInfo()));
+            unset($insertAltoBranchStmt); // Explicitly unset for good measure
+        } else {
+            Logger::log("        Full branches XML unchanged. Skipping update in tracking table for ID '" . $altoBranchIdForFullList . "'.", 'INFO');
+            // Still update `last_synced` to reflect that we checked it, but keep processed status.
+            $updateSyncedStmt = $this->db->prepare("UPDATE `" . DB_PREFIX . "alto_branches` SET last_synced = NOW() WHERE alto_branch_id = ?");
+            try {
+                $updateSyncedStmt->execute([$altoBranchIdForFullList]);
+            } catch (\PDOException $e) {
+                Logger::log("        PDO Error updating last_synced for full branches XML: " . $e->getMessage(), 'ERROR');
             }
+            unset($updateSyncedStmt); // Explicitly unset for good measure
         }
     }
 
@@ -407,31 +328,46 @@ class AltoDataSynchronizer
      */
     private function processPropertyListingsForAllBranches()
     {
-        $stmt = $this->db->prepare("SELECT branchid, alto_url FROM `" . DB_PREFIX . "alto_branches`");
+        // Select the full branch XML data from our internal alto_branches table.
+        // We will parse this XML to get the individual branch URLs.
+        $stmt = $this->db->prepare("SELECT alto_branch_id, xml_data FROM `" . DB_PREFIX . "alto_branches` WHERE alto_branch_id = 'FULL_BRANCH_LIST_XML'");
         $stmt->execute();
-        $branches = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $fullBranchListRow = $stmt->fetch(\PDO::FETCH_ASSOC);
+        $stmt->closeCursor(); // Close cursor immediately after fetching
+        unset($stmt); // Explicitly unset statement
 
-        if (empty($branches)) {
-            error_log("    No branches found in `" . DB_PREFIX . "alto_branches` to fetch property lists for.");
+        if (empty($fullBranchListRow)) {
+            Logger::log("    No full branch list XML found in `" . DB_PREFIX . "alto_branches`. Cannot fetch property lists.", 'INFO');
             return;
         }
 
-        foreach ($branches as $branch) {
-            $branchId = $branch['branchid'];
+        $fullBranchesXml = $fullBranchListRow['xml_data'];
+        $simpleXmlBranches = \simplexml_load_string($fullBranchesXml);
+        if ($simpleXmlBranches === false) {
+            Logger::log("    Failed to parse full branches XML from DB for property fetching. XML content: " . substr($fullBranchesXml, 0, 500) . '...', 'ERROR');
+            return;
+        }
+
+        foreach ($simpleXmlBranches->branch as $branchNode) {
+            $altoBranchId = (string)$branchNode->branchid;
             // The alto_url for a branch is in the format: .../branch/{clientid}
-            // We need to append /property to get the list of properties for that branch.
-            $propertyListUrl = rtrim($branch['alto_url'], '/') . '/property';
+            $branchApiUrl = (string)$branchNode->url;
 
-            error_log("    Fetching property list for branch ID: " . $branchId . " from URL: " . $propertyListUrl);
-            // Pass a log prefix for better debugging
-            $propertyListResponse = $this->makeAuthenticatedApiCall($propertyListUrl, 'GET', [], [], 'Property List - ');
+            // IMPORTANT FIX: Use the URL from the branch XML, and append '/property' to it.
+            // This URL already contains the correct internal branch identifier (e.g., 8191).
+            $propertyListSpecificUrl = rtrim($branchApiUrl, '/') . '/property';
 
-            if ($propertyListResponse['success']) {
-                $propertyListXml = $propertyListResponse['data'];
-                error_log("    Successfully retrieved property list for branch " . $branchId . ".");
-                $this->processPropertySummaries($propertyListXml, $branchId); // Pass branchId to processPropertySummaries
+            Logger::log("    Fetching property list for branch ID: " . $altoBranchId . " from URL: " . $propertyListSpecificUrl, 'INFO');
+
+            // Pass the DIRECT URL to AltoApi. We now treat this as a direct endpoint URL.
+            // The AltoApi::callApi method has a case for filter_var($endpoint, FILTER_VALIDATE_URL) which will handle this.
+            $propertyListXmlResponse = $this->altoApi->fetchPropertySummariesByUrl($propertyListSpecificUrl);
+
+            if ($propertyListXmlResponse) {
+                Logger::log("    Successfully retrieved property list for branch " . $altoBranchId . ".", 'INFO');
+                $this->processPropertySummaries($propertyListXmlResponse, $altoBranchId); // Pass the full XML response
             } else {
-                error_log("    Failed to retrieve property list for branch ID: " . $branchId . ". HTTP Code: " . $propertyListResponse['http_code'] . ", Response: " . $propertyListResponse['data']);
+                Logger::log("    Failed to retrieve property list for branch ID: " . $altoBranchId . ". Check API response and network. (This often returns 403 Forbidden until permissions are granted)", 'ERROR');
             }
         }
     }
@@ -439,141 +375,98 @@ class AltoDataSynchronizer
 
     /**
      * Processes property summaries from a branch's property list XML.
-     * @param string $xml The XML string containing property summaries.
-     * @param string $branchId The branch ID associated with these properties.
+     * Stores property summary data in `ix3gf_alto_properties`.
+     * @param string $xmlResponse The full XML response string containing property summaries.
+     * @param string $altoBranchId The Alto branch ID associated with these properties.
      */
-    private function processPropertySummaries($xml, $branchId)
+    private function processPropertySummaries($xmlResponse, $altoBranchId)
     {
-        $simpleXml = \simplexml_load_string($xml);
+        $simpleXml = \simplexml_load_string($xmlResponse);
         if ($simpleXml === false) {
-            error_log("    Failed to parse property summaries XML. XML content: " . substr($xml, 0, 500) . '...'); // Log partial XML for debugging
+            Logger::log("    Failed to parse property summaries XML response. XML content: " . substr($xmlResponse, 0, 500) . '...', 'ERROR');
             return;
         }
 
         foreach ($simpleXml->property as $propertySummaryNode) {
-            $altoId = (string)$propertySummaryNode->prop_id; // Corrected to prop_id from documentation
-            $lastChangedDate = (string)$propertySummaryNode->lastchanged; // Assuming lastchanged exists
-            $fullPropertyUrl = (string)$propertySummaryNode->url; // URL to get full property details
+            $altoPropertyId = (string)$propertySummaryNode->prop_id;
+            // Ensure the XML string for storage always includes the XML declaration
+            $currentPropertySummaryXml = '<?xml version="1.0" encoding="utf-8"?>' . $propertySummaryNode->asXML();
 
-            error_log("    Processing property summary ID: " . ($altoId ? $altoId : 'N/A') . " for branch " . $branchId);
-
-            // Check if XML data for this property has changed
-            $currentXmlHash = hash('sha256', $propertySummaryNode->asXML());
-            $stmt = $this->db->prepare("SELECT xml_hash, imported FROM `" . DB_PREFIX . "osrs_xml_details` WHERE alto_id = ? AND entity_type = 'property'");
-            $stmt->execute([$altoId]);
-            $xmlDetails = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-            // Log if a property summary has a new or changed status
-            if ($xmlDetails) {
-                if ($xmlDetails['xml_hash'] === $currentXmlHash) {
-                    error_log("        Property " . ($altoId ? $altoId : 'N/A') . " XML unchanged.");
-                } else {
-                    error_log("        Property " . ($altoId ? $altoId : 'N/A') . " XML changed. Marking for re-import.");
-                    // Update in osrs_xml_details
-                    $updateStmt = $this->db->prepare("
-                        UPDATE `" . DB_PREFIX . "osrs_xml_details`
-                        SET xml_hash = ?, xml_data = ?, last_modified = ?, imported = 0, updated_at = NOW()
-                        WHERE alto_id = ? AND entity_type = 'property'
-                    ");
-                    $updateStmt->execute([$currentXmlHash, $propertySummaryNode->asXML(), $lastChangedDate, $altoId]);
-                }
-                // If property is marked as imported but data has changed (above), it's now 0.
-                // If it was already 0, keep it at 0.
-                // Otherwise, it was already processed, and no changes, so skip.
-                if (isset($xmlDetails['imported']) && $xmlDetails['imported'] == 1 && $xmlDetails['xml_hash'] === $currentXmlHash) {
-                    continue; // Skip if already imported and no changes
-                }
-            } else {
-                error_log("        New Property " . ($altoId ? $altoId : 'N/A') . ". Storing for import.");
-                // Insert into osrs_xml_details
-                $insertStmt = $this->db->prepare("
-                    INSERT INTO `" . DB_PREFIX . "osrs_xml_details` (alto_id, entity_type, xml_hash, xml_data, last_modified, imported)
-                    VALUES (?, 'property', ?, ?, ?, 0)
-                ");
-                $insertStmt->execute([$altoId, $currentXmlHash, $propertySummaryNode->asXML(), $lastChangedDate]);
+            if (\trim($altoPropertyId) === '') {
+                Logger::log("        WARNING: Skipping property summary with empty Alto Property ID.", 'WARNING');
+                continue;
             }
 
-            // At this point, the property is either new or updated, and marked as `imported = 0` (pending)
-            // The full property XML will be fetched and processed later in processPendingProperties()
-            // We need to associate the branchId with the property for later mapping.
-            // This can be done by storing the branchId in the xml_data or a separate column,
-            // or by ensuring processPendingProperties can look up the branchId.
-            // For now, let's update the existing entry (or create if new) in ix3gf_alto_properties
-            // to store the branchId. This is an internal tracking table.
-            $stmt = $this->db->prepare("
-                INSERT INTO `" . DB_PREFIX . "alto_properties` (alto_id, branch_alto_id, last_synced)
-                VALUES (?, ?, NOW())
-                ON DUPLICATE KEY UPDATE branch_alto_id = VALUES(branch_alto_id), last_synced = NOW()
-            ");
+            Logger::log("    Processing property summary for Alto Property ID: " . $altoPropertyId . " (Branch: " . $altoBranchId . ")", 'INFO');
+
             try {
-                $stmt->execute([$altoId, $branchId]);
-                error_log("        Property " . $altoId . " associated with branch " . $branchId . " in alto_properties table.");
+                // --- CRITICAL FIX FOR PDO EXCEPTION ON LINE ~395 ---
+                // Ensure the SELECT query is fully consumed before proceeding with INSERT/UPDATE.
+                $stmt = $this->db->prepare("SELECT xml_data FROM `" . DB_PREFIX . "alto_properties` WHERE alto_property_id = ? AND alto_branch_id = ?");
+                $stmt->execute([$altoPropertyId, $altoBranchId]);
+                $existingPropertySummaryXml = $stmt->fetchColumn(); // Fetches first column of first row (or false)
+                $stmt->closeCursor(); // Explicitly close cursor here to prevent pending results
+                unset($stmt); // Explicitly unset statement for maximum resource release
+                // --- END CRITICAL FIX ---
+
+
+                $propertyXmlChanged = (hash('sha256', (string)$existingPropertySummaryXml) !== hash('sha256', $currentPropertySummaryXml));
+
+                if ($propertyXmlChanged || $existingPropertySummaryXml === false) { // If new or changed
+                    Logger::log("        Property " . ($altoPropertyId ?: 'N/A') . " summary XML changed or new. Updating in " . DB_PREFIX . "alto_properties.", 'INFO');
+
+                    $insertAltoPropertyStmt = $this->db->prepare("
+                        INSERT INTO `" . DB_PREFIX . "alto_properties` (alto_property_id, alto_branch_id, xml_data, last_synced, processed)
+                        VALUES (?, ?, ?, NOW(), 0)
+                        ON DUPLICATE KEY UPDATE
+                            alto_branch_id = VALUES(alto_branch_id),
+                            xml_data = VALUES(xml_data),
+                            last_synced = NOW(),
+                            processed = 0; -- Mark as unprocessed for import
+                    ");
+                    // This execute was line ~395 and throwing the error. The fix is above and `unset($stmt)`.
+                    if ($insertAltoPropertyStmt->execute([$altoPropertyId, $altoBranchId, $currentPropertySummaryXml])) {
+                        Logger::log("        Property " . ($altoPropertyId ?: 'N/A') . " summary XML stored/updated in " . DB_PREFIX . "alto_properties. Marked for import.", 'INFO');
+                    } else {
+                        Logger::log("        Failed to store/update property " . ($altoPropertyId ?: 'N/A') . " summary XML in " . DB_PREFIX . "alto_properties: " . json_encode($insertAltoPropertyStmt->errorInfo()), 'ERROR');
+                    }
+                    unset($insertAltoPropertyStmt); // Explicitly unset for good measure
+                } else {
+                    Logger::log("        Property " . ($altoPropertyId ?: 'N/A') . " summary XML unchanged. Skipping update in tracking table.", 'INFO');
+
+                    // Backfill: if this property has no images yet, still queue it for import
+                    if (OsPropertyMapper::propertyNeedsImages($altoPropertyId)) {
+                        Logger::log("        Property {$altoPropertyId} has no images yet — queuing for import anyway.", 'INFO');
+
+                        $stmtQueue = $this->db->prepare("
+                            INSERT INTO `" . DB_PREFIX . "alto_properties` (alto_property_id, alto_branch_id, xml_data, last_synced, processed)
+                            VALUES (?, ?, ?, NOW(), 0)
+                            ON DUPLICATE KEY UPDATE
+                                last_synced = NOW(),
+                                processed   = 0
+                        ");
+                        $stmtQueue->execute([$altoPropertyId, $altoBranchId, $currentPropertySummaryXml]);
+                        unset($stmtQueue);
+                    } else {
+                        // Just refresh last_synced so we know we checked it
+                        $updateSyncedStmt = $this->db->prepare("UPDATE `" . DB_PREFIX . "alto_properties` SET last_synced = NOW() WHERE alto_property_id = ? AND alto_branch_id = ?");
+                        $updateSyncedStmt->execute([$altoPropertyId, $altoBranchId]);
+                        unset($updateSyncedStmt);
+                    }
+                }
             } catch (\PDOException $e) {
-                error_log("        Failed to associate property " . $altoId . " with branch " . $branchId . " in alto_properties: " . $e->getMessage());
+                Logger::log('        CRITICAL ERROR storing property summary ' . $altoPropertyId . ': ' . $e->getMessage(), 'CRITICAL');
+                // Do NOT mark as processed, let it retry on next run.
+            } catch (\Exception $e) {
+                Logger::log('        GENERAL ERROR storing property summary ' . $altoPropertyId . ': ' . $e->getMessage(), 'CRITICAL');
+                // Do NOT mark as processed, let it retry on next run.
             }
         }
-    }
-
-    private function processPendingProperties()
-    {
-        $pendingPropertiesStmt = $this->db->prepare("
-            SELECT oxd.alto_id, oxd.xml_data, ap.branch_alto_id
-            FROM `" . DB_PREFIX . "osrs_xml_details` oxd
-            JOIN `" . DB_PREFIX . "alto_properties` ap ON oxd.alto_id = ap.alto_id
-            WHERE oxd.entity_type = 'property' AND oxd.imported = 0
-            LIMIT 50 -- Process in batches to avoid memory issues
-        ");
-        $pendingPropertiesStmt->execute();
-        $pendingProperties = $pendingPropertiesStmt->fetchAll(\PDO::FETCH_ASSOC);
-
-        $processedCount = 0;
-        foreach ($pendingProperties as $propertyRow) {
-            $altoId = $propertyRow['alto_id'];
-            $propertySummaryXml = $propertyRow['xml_data']; // This is the summary XML
-            $branchAltoId = $propertyRow['branch_alto_id']; // Get the branch ID from alto_properties
-
-            // From the summary XML, extract the URL to get the full property details
-            $simpleXml = \simplexml_load_string($propertySummaryXml);
-            if ($simpleXml === false) {
-                error_log("    Failed to parse summary XML for pending property " . $altoId . ". Skipping. XML content: " . substr($propertySummaryXml, 0, 500) . '...');
-                // Mark as imported to avoid re-processing this problematic entry repeatedly
-                $this->markXmlDetailsAsImported($altoId, 'property');
-                continue;
-            }
-            $fullPropertyUrl = (string)$simpleXml->url; // This URL is the 'Get Property' endpoint
-
-            if (!$fullPropertyUrl) {
-                error_log("    No full property URL found in summary for Alto ID: " . $altoId . ". Skipping.");
-                // Mark as imported to avoid re-processing this problematic entry repeatedly
-                $this->markXmlDetailsAsImported($altoId, 'property');
-                continue;
-            }
-
-            error_log("    Fetching full details for pending property ID: " . $altoId . " from URL: " . $fullPropertyUrl);
-            // Pass a log prefix for better debugging
-            $fullPropertyResponse = $this->makeAuthenticatedApiCall($fullPropertyUrl, 'GET', [], [], 'Full Property - ');
-
-            if ($fullPropertyResponse['success']) {
-                $fullPropertyXml = $fullPropertyResponse['data'];
-                error_log("        Mapping full property " . $altoId . " to database.");
-                // Pass branchAltoId to the mapper
-                $this->mapper->mapPropertyDetailsToDatabase($fullPropertyXml, $branchAltoId);
-                $this->markXmlDetailsAsImported($altoId, 'property');
-                $processedCount++;
-            } else {
-                error_log("    Failed to fetch full property details for Alto ID: " . $altoId . ". HTTP Code: " . $fullPropertyResponse['http_code'] . ", Response: " . $fullPropertyResponse['data']);
-                // Do NOT mark as imported here, so it can be retried
-            }
-        }
-        error_log("    Finished re-processing " . $processedCount . " properties.");
-    }
-
-    private function markXmlDetailsAsImported($altoId, $entityType)
-    {
-        $stmt = $this->db->prepare("UPDATE `" . DB_PREFIX . "osrs_xml_details` SET imported = 1, updated_at = NOW() WHERE alto_id = ? AND entity_type = ?");
-        $stmt->execute([$altoId, $entityType]);
     }
 }
+
+// Initialize Logger before any other classes to ensure it's available for all logging calls
+Logger::init(LOGS_DIR . 'alto-sync.log');
 
 // Run the synchronization
 $synchronizer = new AltoDataSynchronizer();

@@ -18,16 +18,3 @@ define('ALTO_API_DATAFEED_ID', 'TudorEAAPI'); // Your Alto Datafeed ID (part of 
 // File Paths
 define('LOGS_DIR', __DIR__ . '/logs/');
 define('TOKEN_FILE', __DIR__ . '/tokens.txt'); // Path to store the OAuth token
-
-// Log file path (relative to the script's directory)
-define('LOG_FILE_SYNC', __DIR__ . '/logs/alto-sync.log');
-define('LOG_FILE_IMPORT', __DIR__ . '/logs/alto-import.log');
-
-// --- NEW: Image Upload Configuration (Dynamic Paths) ---
-// This is the absolute base path on your server where OS Property stores property images.
-// OS Property typically creates subfolders for each property ID.
-// Filesystem (absolute path) — where files are saved:
-define('PROPERTY_IMAGE_UPLOAD_BASE_PATH', $_SERVER['DOCUMENT_ROOT'] . '/images/osproperty/properties/');
-
-// DB path (what goes into #__osrs_photos.image) — RELATIVE to images/osproperty/
-define('PROPERTY_IMAGE_DB_BASE_PATH_PREFIX', 'properties/');

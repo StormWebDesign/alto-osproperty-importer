@@ -1,0 +1,384 @@
+[2025-09-03 15:25:21 Europe/London] [INFO] Database connection established for alto-sync.
+[2025-09-03 15:25:21 Europe/London] [DEBUG] AltoApi initialized with token file path: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:25:21 Europe/London] [DEBUG] Attempting to load token from file: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:25:21 Europe/London] [INFO] Token file does not exist at /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:25:21 Europe/London] [INFO] ------------------------------------------------------------------------
+[2025-09-03 15:25:21 Europe/London] [INFO] Alto Data Synchronization started: 2025-09-03 15:25:21 BST
+[2025-09-03 15:25:21 Europe/London] [INFO] ------------------------------------------------------------------------
+[2025-09-03 15:25:21 Europe/London] [INFO] 
+[2025-09-03 15:25:21 Europe/London] [INFO] Starting Alto Data Synchronization...
+[2025-09-03 15:25:21 Europe/London] [INFO]     Checking for required database tables...
+[2025-09-03 15:25:21 Europe/London] [INFO] Table `ix3gf_alto_branches` checked/created successfully.
+[2025-09-03 15:25:21 Europe/London] [INFO] Table `ix3gf_alto_properties` checked/created successfully.
+[2025-09-03 15:25:21 Europe/London] [INFO] Table `ix3gf_osrs_xml_details` checked/created successfully.
+[2025-09-03 15:25:21 Europe/London] [INFO]     Column `alto_id` already exists in `ix3gf_osrs_properties`.
+[2025-09-03 15:25:21 Europe/London] [INFO]     Column `alto_branch_id` already exists in `ix3gf_osrs_companies`.
+[2025-09-03 15:25:21 Europe/London] [INFO]     Column `website` already exists in `ix3gf_osrs_companies`.
+[2025-09-03 15:25:21 Europe/London] [INFO]     Column `alto_negotiator_id` already exists in `ix3gf_users`.
+[2025-09-03 15:25:21 Europe/London] [DEBUG] Entering getAccessToken() method.
+[2025-09-03 15:25:21 Europe/London] [INFO] No valid token in memory. Attempting to load from file or acquire new.
+[2025-09-03 15:25:21 Europe/London] [DEBUG] Attempting to load token from file: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:25:21 Europe/London] [INFO] Token file does not exist at /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-03 15:25:21 Europe/London] [INFO] No valid token found in memory or file. Attempting to acquire a new token...
+[2025-09-03 15:25:21 Europe/London] [INFO] Attempting token acquisition from URL: https://webservices.vebra.com/export/TudorEAAPI/v13/branch
+[2025-09-03 15:25:21 Europe/London] [DEBUG] Using API Username: Tudor535ADxml
+[2025-09-03 15:25:24 Europe/London] [INFO] Token Acquisition HTTP Code: 401
+[2025-09-03 15:25:24 Europe/London] [INFO] Token Acquisition Curl Error: None
+[2025-09-03 15:25:24 Europe/London] [DEBUG] Token Acquisition Response Headers:
+HTTP/1.1 401 Unauthorized
+Date: Wed, 03 Sep 2025 14:25:24 GMT
+Content-Type: text/html
+Content-Length: 1293
+Connection: keep-alive
+Set-Cookie: AWSALB=g2MMcBZwBjqt5yzG7PoPeMr/72pn/9rBvB0Z7xzhd78t//P0jpcm14r9vYV7J8cJ0vIpHq0V+fqqtLFIjodrACSroY292F1ckX2aEJ9cKCvjmZfHGnECjFtNPPec; Expires=Wed, 10 Sep 2025 14:25:21 GMT; Path=/
+Set-Cookie: AWSALBCORS=g2MMcBZwBjqt5yzG7PoPeMr/72pn/9rBvB0Z7xzhd78t//P0jpcm14r9vYV7J8cJ0vIpHq0V+fqqtLFIjodrACSroY292F1ckX2aEJ9cKCvjmZfHGnECjFtNPPec; Expires=Wed, 10 Sep 2025 14:25:21 GMT; Path=/; SameSite=None; Secure
+Cache-Control: private
+Server: Microsoft-IIS/10.0
+Set-Cookie: ASP.NET_SessionId=1hrzxj3brubut2qibw2tm35y; path=/; HttpOnly; SameSite=Lax
+X-AspNet-Version: 4.0.30319
+X-Powered-By: ASP.NET
+
+
+[2025-09-03 15:25:24 Europe/London] [DEBUG] Token Acquisition Response Body (first 500 chars):
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>401 - Unauthorized: Access is denied due to invalid credentials.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-si
+[2025-09-03 15:25:24 Europe/London] [ERROR] Token acquisition failed. HTTP Code: 401. Your username/password might be incorrect or have insufficient permissions. Response: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>401 - Unauthorized: Access is denied due to invalid credentials.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-size:2.4em;margin:0;color:#FFF;}
+h2{font-size:1.7em;margin:0;color:#CC0000;} 
+h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;} 
+#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;
+background-color:#555555;}
+#content{margin:0 0 0 2%;position:relative;}
+.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}
+-->
+</style>
+</head>
+<body>
+<div id="header"><h1>Server Error</h1></div>
+<div id="content">
+ <div class="content-container"><fieldset>
+  <h2>401 - Unauthorized: Access is denied due to invalid credentials.</h2>
+  <h3>You do not have permission to view this directory or page using the credentials that you supplied.</h3>
+ </fieldset></div>
+</div>
+</body>
+</html>
+
+[2025-09-03 15:25:24 Europe/London] [CRITICAL] Failed to get OAuth token: Failed to acquire new OAuth token.
+[2025-09-03 15:25:24 Europe/London] [CRITICAL]     No valid OAuth token found. Ensure get_token.php has been run and tokens.txt exists with a valid token.
+[2025-09-03 15:25:24 Europe/London] [CRITICAL]     Aborting synchronization.
+[2025-09-04 02:05:08 Europe/London] [INFO] Database connection established for alto-sync.
+[2025-09-04 02:05:08 Europe/London] [DEBUG] AltoApi initialized with token file path: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-04 02:05:08 Europe/London] [DEBUG] Attempting to load token from file: /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt
+[2025-09-04 02:05:08 Europe/London] [INFO] Loaded valid JSON token from /home/sites/24a/d/ddaaffa754/public_html/cli/alto-sync/tokens.txt. Expires at 2025-09-04 03:00:14
+[2025-09-04 02:05:08 Europe/London] [INFO] ------------------------------------------------------------------------
+[2025-09-04 02:05:08 Europe/London] [INFO] Alto Data Synchronization started: 2025-09-04 02:05:08 BST
+[2025-09-04 02:05:08 Europe/London] [INFO] ------------------------------------------------------------------------
+[2025-09-04 02:05:08 Europe/London] [INFO] 
+[2025-09-04 02:05:08 Europe/London] [INFO] Starting Alto Data Synchronization...
+[2025-09-04 02:05:08 Europe/London] [INFO]     Checking for required database tables...
+[2025-09-04 02:05:08 Europe/London] [INFO] Table `ix3gf_alto_branches` checked/created successfully.
+[2025-09-04 02:05:08 Europe/London] [INFO] Table `ix3gf_alto_properties` checked/created successfully.
+[2025-09-04 02:05:08 Europe/London] [INFO] Table `ix3gf_osrs_xml_details` checked/created successfully.
+[2025-09-04 02:05:08 Europe/London] [INFO]     Column `alto_id` already exists in `ix3gf_osrs_properties`.
+[2025-09-04 02:05:08 Europe/London] [INFO]     Column `alto_branch_id` already exists in `ix3gf_osrs_companies`.
+[2025-09-04 02:05:08 Europe/London] [INFO]     Column `website` already exists in `ix3gf_osrs_companies`.
+[2025-09-04 02:05:08 Europe/London] [INFO]     Column `alto_negotiator_id` already exists in `ix3gf_users`.
+[2025-09-04 02:05:08 Europe/London] [DEBUG] Entering getAccessToken() method.
+[2025-09-04 02:05:08 Europe/London] [INFO] Using existing OAuth token from memory (expires: 2025-09-04 03:00:14).
+[2025-09-04 02:05:08 Europe/London] [INFO]     Using existing OAuth token for API calls.
+[2025-09-04 02:05:08 Europe/London] [INFO] 1. Fetching branches list...
+[2025-09-04 02:05:08 Europe/London] [INFO] 1. Fetching branches list...
+[2025-09-04 02:05:08 Europe/London] [DEBUG] Entering getAccessToken() method.
+[2025-09-04 02:05:08 Europe/London] [INFO] Using existing OAuth token from memory (expires: 2025-09-04 03:00:14).
+[2025-09-04 02:05:08 Europe/London] [INFO] Calling API URL: https://webservices.vebra.com/export/TudorEAAPI/v13/branch
+[2025-09-04 02:05:08 Europe/London] [DEBUG] Sending with Authorization header: Basic U1VYUkxJVUFVSVBSSkRY...
+[2025-09-04 02:05:08 Europe/London] [INFO] API Call to https://webservices.vebra.com/export/TudorEAAPI/v13/branch - HTTP Code: 200
+[2025-09-04 02:05:08 Europe/London] [INFO] API Call to https://webservices.vebra.com/export/TudorEAAPI/v13/branch - Curl Error: None
+[2025-09-04 02:05:08 Europe/London] [DEBUG] API Call to https://webservices.vebra.com/export/TudorEAAPI/v13/branch - Response Body (first 500 chars):
+<?xml version="1.0" encoding="utf-8"?><branches xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://webservices.vebra.com/export/xsd/v13/exportapi.xsd"><branch><name /><firmid>30179</firmid><branchid>1</branchid><url>https://webservices.vebra.com/export/TudorEAAPI/v13/branch/8191</url></branch></branches>
+[2025-09-04 02:05:08 Europe/London] [INFO] API call to branch list successful.
+[2025-09-04 02:05:08 Europe/London] [INFO]     API call to branch list successful.
+[2025-09-04 02:05:08 Europe/London] [INFO]         Full branches XML unchanged. Skipping update in tracking table for ID 'FULL_BRANCH_LIST_XML'.
+[2025-09-04 02:05:08 Europe/London] [INFO] 2. Fetching property summaries for each branch...
+[2025-09-04 02:05:08 Europe/London] [INFO]     Fetching property list for branch ID: 1 from URL: https://webservices.vebra.com/export/TudorEAAPI/v13/branch/8191/property
+[2025-09-04 02:05:08 Europe/London] [INFO] Fetching property summaries from URL: https://webservices.vebra.com/export/TudorEAAPI/v13/branch/8191/property
+[2025-09-04 02:05:08 Europe/London] [DEBUG] Entering getAccessToken() method.
+[2025-09-04 02:05:08 Europe/London] [INFO] Using existing OAuth token from memory (expires: 2025-09-04 03:00:14).
+[2025-09-04 02:05:08 Europe/London] [INFO] Calling API URL: https://webservices.vebra.com/export/TudorEAAPI/v13/branch/8191/property
+[2025-09-04 02:05:08 Europe/London] [DEBUG] Sending with Authorization header: Basic U1VYUkxJVUFVSVBSSkRY...
+[2025-09-04 02:05:09 Europe/London] [INFO] API Call to https://webservices.vebra.com/export/TudorEAAPI/v13/branch/8191/property - HTTP Code: 200
+[2025-09-04 02:05:09 Europe/London] [INFO] API Call to https://webservices.vebra.com/export/TudorEAAPI/v13/branch/8191/property - Curl Error: None
+[2025-09-04 02:05:09 Europe/London] [DEBUG] API Call to https://webservices.vebra.com/export/TudorEAAPI/v13/branch/8191/property - Response Body (first 500 chars):
+<?xml version="1.0" encoding="utf-8"?><properties xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://webservices.vebra.com/export/xsd/v13/exportapi.xsd"><property><prop_id>33850164</prop_id><lastchanged>2025-05-12T10:16:07.773</lastchanged><url>https://webservices.vebra.com/export/TudorEAAPI/v13/branch/8191/property/33850164</url></property><property><prop_id>34092749</prop_id><lastchanged>2025-08-08T13:32:31.4
+[2025-09-04 02:05:09 Europe/London] [INFO] Successfully retrieved property list from https://webservices.vebra.com/export/TudorEAAPI/v13/branch/8191/property.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Successfully retrieved property list for branch 1.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33850164 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33850164 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34092749 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34092749 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33878798 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33878798 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32210160 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32210160 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33875415 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33875415 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33241203 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33241203 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32422240 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32422240 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33613537 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33613537 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33691270 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33691270 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33691270 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 31379169 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 31379169 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 31494531 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 31494531 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 31494531 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 31426676 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 31426676 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33559348 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33559348 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33559348 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33194245 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33194245 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33194245 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33605325 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33605325 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32910115 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32910115 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33235368 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33235368 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32009402 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32009402 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32283321 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32283321 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33939660 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33939660 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 31863881 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 31863881 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33869569 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33869569 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34055136 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34055136 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34092053 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34092053 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33790547 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33790547 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32576550 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32576550 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32623789 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32623789 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33235747 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33235747 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33714833 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33714833 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33372293 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33372293 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32746517 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32746517 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33801829 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33801829 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 28467781 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 28467781 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33081470 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33081470 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32955608 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32955608 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33658533 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33658533 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33658533 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32659431 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32659431 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33908969 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33908969 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33908969 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34045015 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34045015 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34108718 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34108718 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34108718 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33660211 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33660211 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33059629 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33059629 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33194338 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33194338 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34145016 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34145016 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34145016 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33903336 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33903336 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33919157 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33919157 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33485986 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33485986 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33712012 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33712012 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32942423 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32942423 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33666409 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33666409 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33968021 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33968021 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33968021 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34094768 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34094768 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34122574 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34122574 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34122574 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33889887 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33889887 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32896958 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32896958 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32601586 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32601586 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32601586 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33619084 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33619084 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33237346 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33237346 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34074477 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34074477 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 31758443 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 31758443 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 31758443 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33697269 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33697269 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33613520 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33613520 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34022915 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34022915 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33957658 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33957658 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33962762 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33962762 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34030339 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34030339 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33266350 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33266350 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33266350 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33090599 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33090599 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33939512 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33939512 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33666152 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33666152 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33757608 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33757608 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33932863 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33932863 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34124498 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34124498 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34124498 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33769255 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33769255 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33932846 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33932846 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32994395 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32994395 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32743381 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32743381 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33332165 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33332165 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33825870 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33825870 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33850507 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33850507 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33189995 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33189995 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33166334 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33166334 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33980831 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33980831 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34071437 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34071437 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32779022 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32779022 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33794037 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33794037 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33090512 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33090512 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 31663261 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 31663261 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32948286 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32948286 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32618893 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32618893 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33719882 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33719882 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33811751 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33811751 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32009486 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32009486 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33670190 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33670190 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33805903 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33805903 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33353819 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33353819 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33101498 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33101498 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33971307 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33971307 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33926538 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33926538 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 30264992 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 30264992 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 30264992 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 31403546 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 31403546 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33718673 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33718673 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33823523 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33823523 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34092446 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34092446 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34125048 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34125048 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34125048 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33896791 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33896791 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34051927 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34051927 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33901387 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33901387 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33901387 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34070327 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34070327 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34022314 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34022314 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33825449 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33825449 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32468359 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 32468359 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33816648 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33816648 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 33816648 has no images yet — queuing for import anyway.
+[2025-09-04 02:05:09 Europe/London] [INFO]     Processing property summary for Alto Property ID: 34092263 (Branch: 1)
+[2025-09-04 02:05:09 Europe/London] [INFO]         Property 34092263 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:10 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33615681 (Branch: 1)
+[2025-09-04 02:05:10 Europe/London] [INFO]         Property 33615681 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:10 Europe/London] [INFO]     Processing property summary for Alto Property ID: 32492128 (Branch: 1)
+[2025-09-04 02:05:10 Europe/London] [INFO]         Property 32492128 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:10 Europe/London] [INFO]     Processing property summary for Alto Property ID: 33395056 (Branch: 1)
+[2025-09-04 02:05:10 Europe/London] [INFO]         Property 33395056 summary XML unchanged. Skipping update in tracking table.
+[2025-09-04 02:05:10 Europe/London] [INFO] Alto Data Synchronization completed. Data prepared for import.
