@@ -567,6 +567,9 @@ class OsPropertyMapper
         // Create the property-specific directory if it doesn't exist
         $propertyImageDir = \PROPERTY_IMAGE_UPLOAD_BASE_PATH . $propertyOsId . '/';
         if (!is_dir($propertyImageDir)) {
+            Logger::log("DEBUG: PROPERTY_IMAGE_UPLOAD_BASE_PATH = " . PROPERTY_IMAGE_UPLOAD_BASE_PATH, 'DEBUG');
+            Logger::log("DEBUG: propertyImageDir = " . $propertyImageDir, 'DEBUG');
+
             if (!mkdir($propertyImageDir, 0755, true)) {
                 Logger::log("        ERROR: Failed to create property image directory: " . $propertyImageDir, 'ERROR');
                 return false;
