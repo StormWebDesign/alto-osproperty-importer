@@ -1,16 +1,17 @@
 <?php
 // /public_html/cli/alto-sync/BackfillOsPropertyImages.php
-// Generate thumb & medium images for existing OS Property photos.
+// Generate thumb & medium images for existing OS Property photos,
+// and (optionally) rebuild missing DB photo rows from originals on disk.
 
 declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 
 date_default_timezone_set('UTC');
+ini_set('memory_limit', '512M');
 
-function logln(string $msg): void {
-    echo '[' . date('Y-m-d H:i:s') . "] $msg\n";
-}
+function logln(string $msg): void { echo '[' . date('Y-m-d H:i:s') . "] $msg\n"; }
+function dieWith(string $msg, int $code = 1): void { logln($msg); exit($code); }
 
 try {
     $db = new PDO(
@@ -20,74 +21,74 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 } catch (Throwable $e) {
-    logln('DB connect error: ' . $e->getMessage());
-    exit(1);
+    dieWith('DB connect error: ' . $e->getMessage());
 }
 
-/** CLI args */
-$pid     = null;
-$runAll  = false;
+/** ---- CLI args ---- */
+$pid = null;
+$runAll = false;
+$dryRun = false;
+$rebuildDbFromDisk = false;
+
 foreach ($argv as $arg) {
     if (preg_match('/^--pid=(\d+)$/', $arg, $m)) {
         $pid = (int)$m[1];
     } elseif ($arg === '--all') {
         $runAll = true;
+    } elseif ($arg === '--dry-run') {
+        $dryRun = true;
+    } elseif ($arg === '--rebuild-db-from-disk') {
+        $rebuildDbFromDisk = true;
     }
 }
 if (!$runAll && !$pid) {
-    logln("Usage: php BackfillOsPropertyImages.php --pid=<propertyId>  OR  --all");
+    logln("Usage:");
+    logln("  php BackfillOsPropertyImages.php --pid=<propertyId> [--dry-run] [--rebuild-db-from-disk]");
+    logln("  php BackfillOsPropertyImages.php --all            [--dry-run] [--rebuild-db-from-disk]");
     exit(2);
 }
 
-/** Read image config from DB */
-function cfg(PDO $db, string $key, $default) {
-    $stmt = $db->prepare("SELECT fieldvalue FROM `" . \DB_PREFIX . "osrs_configuration` WHERE fieldname = ?");
+/** ---- Read image config from DB ---- */
+$cfgFetch = function(PDO $db, string $key, $default) {
+    $stmt = $db->prepare("SELECT fieldvalue FROM `".\DB_PREFIX."osrs_configuration` WHERE fieldname = ?");
     $stmt->execute([$key]);
     $v = $stmt->fetchColumn();
-    return $v !== false ? $v : $default;
-}
-$thumbW  = (int)cfg($db, 'images_thumbnail_width', 170);
-$thumbH  = (int)cfg($db, 'images_thumbnail_height', 110);
-$largeW  = (int)cfg($db, 'images_large_width', 600);
-$largeH  = (int)cfg($db, 'images_large_height', 370);
-$quality = (int)cfg($db, 'images_quality', 90);
-logln("Config: thumb {$thumbW}x{$thumbH}, medium {$largeW}x{$largeH}, quality {$quality}");
+    return $v !== false ? (int)$v : $default;
+};
+$thumbW  = $cfgFetch($db, 'images_thumbnail_width', 170);
+$thumbH  = $cfgFetch($db, 'images_thumbnail_height', 110);
+$largeW  = $cfgFetch($db, 'images_large_width', 600);
+$largeH  = $cfgFetch($db, 'images_large_height', 370);
+$quality = max(10, min(100, $cfgFetch($db, 'images_quality', 90)));
 
 $hasImagick = class_exists('Imagick');
-logln('Imagick: ' . ($hasImagick ? 'yes' : 'no'));
 
-/** Paths */
-$FS_BASE = rtrim(\PROPERTY_IMAGE_UPLOAD_BASE_PATH ?? '', '/'); // e.g. /home/.../public_html/images/osproperty/properties
+logln("Config: thumb {$thumbW}x{$thumbH}, medium {$largeW}x{$largeH}, quality {$quality}");
+logln('Imagick: ' . ($hasImagick ? 'yes' : 'no'));
+logln('Dry run: ' . ($dryRun ? 'yes' : 'no'));
+
+/** ---- Paths ---- */
+$FS_BASE = rtrim((string)(\PROPERTY_IMAGE_UPLOAD_BASE_PATH ?? ''), '/'); // absolute
 if ($FS_BASE === '' || !is_dir($FS_BASE)) {
-    // Fallback if constant isn’t present for some reason.
-    // Backfill lives in /public_html/cli/alto-sync — web root is two dirs up.
+    // Fallback if the constant isn’t defined in this context for some reason.
     $webRootGuess = realpath(__DIR__ . '/../../');
     $FS_BASE = $webRootGuess . '/images/osproperty/properties';
 }
 if (!is_dir($FS_BASE)) {
-    logln("ERROR: Image base dir not found: $FS_BASE");
-    exit(1);
+    dieWith("ERROR: Image base dir not found: $FS_BASE");
+}
+logln("FS base: $FS_BASE");
+
+function ensureDir(string $dir, bool $dryRun): bool {
+    if (is_dir($dir)) return true;
+    if ($dryRun) return true;
+    return @mkdir($dir, 0755, true);
 }
 
-/** Load photos to process */
-if ($runAll) {
-    $stmt = $db->query("SELECT id, pro_id AS pid, image FROM `" . \DB_PREFIX . "osrs_photos` ORDER BY pro_id, id");
-    $photos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $targetPid = null;
-    logln('Processing: ALL properties in osrs_photos');
-} else {
-    $stmt = $db->prepare("SELECT id, pro_id AS pid, image FROM `" . \DB_PREFIX . "osrs_photos` WHERE pro_id = ? ORDER BY id");
-    $stmt->execute([$pid]);
-    $photos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $targetPid = $pid;
-    logln("Found " . count($photos) . " photo rows (pid={$pid}).");
-}
-
-$total = count($photos);
-$madeT = $madeM = $missing = $skipped = $errors = 0;
-
-function ensureDir(string $dir): bool {
-    return is_dir($dir) || mkdir($dir, 0755, true);
+/** ---- Helpers to write derivatives ---- */
+function needsRefresh(string $src, string $dst): bool {
+    if (!file_exists($dst)) return true;
+    return (filemtime($src) > filemtime($dst));
 }
 
 function makeWithImagick(string $src, string $dst, int $w, int $h, int $quality): bool {
@@ -95,34 +96,28 @@ function makeWithImagick(string $src, string $dst, int $w, int $h, int $quality)
         $im = new Imagick();
         $im->readImage($src);
 
-        // Normalize colorspace to sRGB (some JPEGs are CMYK)
+        // Normalize + orient
         try {
             if ($im->getImageColorspace() !== Imagick::COLORSPACE_RGB) {
                 $im->setImageColorspace(Imagick::COLORSPACE_RGB);
             }
         } catch (Throwable $e) {}
-
-        $im->setImageOrientation(Imagick::ORIENTATION_TOPLEFT); // avoid rotated thumbs
+        $im->setImageOrientation(Imagick::ORIENTATION_TOPLEFT);
         $im->autoOrient();
 
-        // Create a cover-crop to requested WxH (same behaviour users expect in frontend lists)
+        // scale to max fit, then center-crop to exact WxH ("cover")
         $im->setImageCompressionQuality($quality);
-        $im->thumbnailImage($w, $h, true); // preserve aspect ratio, max fit
-        // If we need strict WxH, do a center crop
+        $im->thumbnailImage($w, $h, true);
         $geo = $im->getImageGeometry();
-        if ($geo['width'] > $w || $geo['height'] > $h) {
-            $x = max(0, (int)(($geo['width'] - $w) / 2));
-            $y = max(0, (int)(($geo['height'] - $h) / 2));
-            $im->cropImage(min($w, $geo['width']), min($h, $geo['height']), $x, $y);
-        }
+        $cropW = min($w, $geo['width']);
+        $cropH = min($h, $geo['height']);
+        $x = max(0, (int)(($geo['width']  - $cropW) / 2));
+        $y = max(0, (int)(($geo['height'] - $cropH) / 2));
+        $im->cropImage($cropW, $cropH, $x, $y);
 
-        // pick format from extension
+        // choose format based on destination extension
         $ext = strtolower(pathinfo($dst, PATHINFO_EXTENSION));
-        if ($ext === 'jpg' || $ext === 'jpeg') {
-            $im->setImageFormat('jpeg');
-        } elseif ($ext === 'png') {
-            $im->setImageFormat('png');
-        }
+        $im->setImageFormat(($ext === 'png') ? 'png' : 'jpeg');
 
         $ok = $im->writeImage($dst);
         $im->destroy();
@@ -137,9 +132,9 @@ function makeWithGd(string $src, string $dst, int $w, int $h, int $quality): boo
     try {
         $ext = strtolower(pathinfo($src, PATHINFO_EXTENSION));
         $srcImg = match ($ext) {
-            'jpg','jpeg' => imagecreatefromjpeg($src),
-            'png'       => imagecreatefrompng($src),
-            'gif'       => imagecreatefromgif($src),
+            'jpg','jpeg' => @imagecreatefromjpeg($src),
+            'png'       => @imagecreatefrompng($src),
+            'gif'       => @imagecreatefromgif($src),
             default     => null,
         };
         if (!$srcImg) return false;
@@ -148,7 +143,7 @@ function makeWithGd(string $src, string $dst, int $w, int $h, int $quality): boo
         $sh = imagesy($srcImg);
         if ($sw < 1 || $sh < 1) { imagedestroy($srcImg); return false; }
 
-        // scale to cover WxH, then crop center
+        // cover
         $scale = max($w / $sw, $h / $sh);
         $tw = (int)ceil($sw * $scale);
         $th = (int)ceil($sh * $scale);
@@ -162,12 +157,9 @@ function makeWithGd(string $src, string $dst, int $w, int $h, int $quality): boo
         imagecopy($dstImg, $tmp, 0, 0, $cx, $cy, $w, $h);
 
         $extOut = strtolower(pathinfo($dst, PATHINFO_EXTENSION));
-        $ok = false;
-        if ($extOut === 'png') {
-            $ok = imagepng($dstImg, $dst);
-        } else { // jpeg default
-            $ok = imagejpeg($dstImg, $dst, max(10, min(100, $quality)));
-        }
+        $ok = ($extOut === 'png')
+            ? imagepng($dstImg, $dst)
+            : imagejpeg($dstImg, $dst, max(10, min(100, $quality)));
 
         imagedestroy($srcImg);
         imagedestroy($tmp);
@@ -179,24 +171,111 @@ function makeWithGd(string $src, string $dst, int $w, int $h, int $quality): boo
     }
 }
 
-function needsRefresh(string $src, string $dst): bool {
-    if (!file_exists($dst)) return true;
-    return (filemtime($src) > filemtime($dst));
+/** ---- Optional: insert DB rows when originals exist on disk but DB is empty ---- */
+function insertPhotoRow(PDO $db, int $pid, string $fileName, int $ordering, bool $isDefault): bool {
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO `".\DB_PREFIX."osrs_photos` (pro_id, image, image_desc, ordering, is_default)
+            VALUES (?, ?, '', ?, ?)
+            ON DUPLICATE KEY UPDATE image = VALUES(image), ordering = VALUES(ordering), is_default = VALUES(is_default)
+        ");
+        return $stmt->execute([$pid, $fileName, $ordering, $isDefault ? 1 : 0]);
+    } catch (Throwable $e) {
+        logln("    [ERR] DB insert photo row failed (pid={$pid}, img={$fileName}): ".$e->getMessage());
+        return false;
+    }
 }
 
-$currentPid = null;
-foreach ($photos as $row) {
-    $pid  = (int)$row['pid'];
-    $img  = (string)$row['image'];
+/** ---- Load photos to process ---- */
+$photos = [];
+$targetPid = null;
 
-    // Group logging by property
-    if ($pid !== $currentPid) {
-        $currentPid = $pid;
-        logln("Property pid={$pid}");
+if ($runAll) {
+    // All rows in osrs_photos
+    $stmt = $db->query("SELECT id, pro_id AS pid, image FROM `".\DB_PREFIX."osrs_photos` ORDER BY pro_id, id");
+    $photos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    logln('Processing: ALL properties present in osrs_photos');
+} else {
+    // Rows for a single pid
+    $stmt = $db->prepare("SELECT id, pro_id AS pid, image FROM `".\DB_PREFIX."osrs_photos` WHERE pro_id = ? ORDER BY id");
+    $stmt->execute([$pid]);
+    $photos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $targetPid = $pid;
+    logln("Found " . count($photos) . " photo rows (pid={$pid}) in DB.");
+}
+
+/** If asked, also rebuild DB rows from disk for properties that have originals but no photos in DB */
+if ($rebuildDbFromDisk) {
+    $pidsToCheck = [];
+
+    if ($runAll) {
+        // scan property directories that exist in filesystem
+        foreach (glob($FS_BASE.'/*', GLOB_ONLYDIR) as $dir) {
+            $base = basename($dir);
+            if (ctype_digit($base)) $pidsToCheck[] = (int)$base;
+        }
+    } else {
+        $pidsToCheck[] = (int)$targetPid;
     }
 
-    // Build absolute filesystem paths
-    $propDir   = $FS_BASE . '/' . $pid;
+    foreach ($pidsToCheck as $ppid) {
+        // Does DB already have photos for this pid?
+        $stmt = $db->prepare("SELECT COUNT(*) FROM `".\DB_PREFIX."osrs_photos` WHERE pro_id = ?");
+        $stmt->execute([$ppid]);
+        $cnt = (int)$stmt->fetchColumn();
+        if ($cnt > 0) continue; // already has rows
+
+        $propDir = $FS_BASE . '/' . $ppid;
+        if (!is_dir($propDir)) continue;
+
+        // find likely originals in property dir root (exclude thumb/medium)
+        $candidates = glob($propDir.'/*.{jpg,jpeg,png,gif,webp,JPG,JPEG,PNG,GIF,WEBP}', GLOB_BRACE) ?: [];
+        $candidates = array_values(array_filter($candidates, fn($p) => !is_dir($p) && !preg_match('~/thumb/|/medium/~', $p)));
+
+        if (count($candidates) === 0) continue;
+
+        logln("pid={$ppid}: rebuilding DB photos from disk originals (".count($candidates)." files)...");
+        natsort($candidates);
+        $ordering = 0;
+        foreach ($candidates as $idx => $abs) {
+            $file = basename($abs);
+            $isDefault = ($idx === 0);
+            if ($dryRun) {
+                logln("  [dry] would insert DB photo row: {$file} (ordering {$ordering}, default ".($isDefault?'1':'0').")");
+            } else {
+                insertPhotoRow($db, $ppid, $file, $ordering, $isDefault);
+            }
+            $ordering++;
+        }
+
+        // refresh our $photos list for this pid so derivatives are generated below
+        $stmt = $db->prepare("SELECT id, pro_id AS pid, image FROM `".\DB_PREFIX."osrs_photos` WHERE pro_id = ? ORDER BY id");
+        $stmt->execute([$ppid]);
+        $photos = array_merge($photos, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+}
+
+/** ---- Backfill derivatives for all (selected) photo rows ---- */
+$total = count($photos);
+$madeT = $madeM = $missing = $skipped = $errors = 0;
+
+$currentPid = null;
+
+foreach ($photos as $row) {
+    $pidRow = (int)$row['pid'];
+    $img    = (string)$row['image'];
+
+    if ($targetPid !== null && $pidRow !== $targetPid) {
+        // when --pid is used, ignore rows for other pids added by rebuild step
+        continue;
+    }
+
+    if ($pidRow !== $currentPid) {
+        $currentPid = $pidRow;
+        logln("Property pid={$pidRow}");
+    }
+
+    $propDir   = $FS_BASE . '/' . $pidRow;
     $srcAbs    = $propDir . '/' . $img;
     $thumbDir  = $propDir . '/thumb';
     $medDir    = $propDir . '/medium';
@@ -204,48 +283,54 @@ foreach ($photos as $row) {
     $mediumAbs = $medDir  . '/' . $img;
 
     if (!file_exists($srcAbs)) {
-        // If not found, try a tolerant fallback: sometimes double extensions happen; try without the last extension.
+        // tolerant fallback: try same basename with any extension
         $base = preg_replace('/\.[^.]+$/', '', $img);
         $alt  = glob($propDir . '/' . $base . '.*');
         if ($alt && file_exists($alt[0])) {
-            $srcAbs   = $alt[0];
-            // keep the same output filename (what frontend expects), even if source differs
+            $srcAbs = $alt[0];
         } else {
-            logln("  [MISSING] src not found: $srcAbs");
+            logln("  [MISSING] original not found: $srcAbs");
             $missing++;
             continue;
         }
     }
 
-    // Ensure dirs
-    if (!ensureDir($thumbDir) || !ensureDir($medDir)) {
-        logln("  [ERR] cannot create derivative dirs for pid={$pid}");
+    if (!ensureDir($thumbDir, $dryRun) || !ensureDir($medDir, $dryRun)) {
+        logln("  [ERR] cannot create derivative dirs for pid={$pidRow}");
         $errors++;
         continue;
     }
 
     // THUMB
     if (needsRefresh($srcAbs, $thumbAbs)) {
-        $ok = $hasImagick
-            ? makeWithImagick($srcAbs, $thumbAbs, $thumbW, $thumbH, $quality)
-            : makeWithGd($srcAbs, $thumbAbs, $thumbW, $thumbH, $quality);
-        if ($ok) { $madeT++; logln("  [+] thumb  -> " . substr($thumbAbs, -80)); }
-        else     { $errors++; logln("  [ERR] thumb failed for " . substr($srcAbs, -80)); }
+        if ($dryRun) {
+            $madeT++; logln("  [dry] thumb  -> " . substr($thumbAbs, -90));
+        } else {
+            $ok = $hasImagick
+                ? makeWithImagick($srcAbs, $thumbAbs, $thumbW, $thumbH, $quality)
+                : makeWithGd($srcAbs, $thumbAbs, $thumbW, $thumbH, $quality);
+            if ($ok) { $madeT++; logln("  [+] thumb  -> " . substr($thumbAbs, -90)); }
+            else     { $errors++; logln("  [ERR] thumb failed for " . substr($srcAbs, -90)); }
+        }
     } else {
         $skipped++;
     }
 
     // MEDIUM
     if (needsRefresh($srcAbs, $mediumAbs)) {
-        $ok = $hasImagick
-            ? makeWithImagick($srcAbs, $mediumAbs, $largeW, $largeH, $quality)
-            : makeWithGd($srcAbs, $mediumAbs, $largeW, $largeH, $quality);
-        if ($ok) { $madeM++; logln("  [+] medium -> " . substr($mediumAbs, -80)); }
-        else     { $errors++; logln("  [ERR] medium failed for " . substr($srcAbs, -80)); }
+        if ($dryRun) {
+            $madeM++; logln("  [dry] medium -> " . substr($mediumAbs, -90));
+        } else {
+            $ok = $hasImagick
+                ? makeWithImagick($srcAbs, $mediumAbs, $largeW, $largeH, $quality)
+                : makeWithGd($srcAbs, $mediumAbs, $largeW, $largeH, $quality);
+            if ($ok) { $madeM++; logln("  [+] medium -> " . substr($mediumAbs, -90)); }
+            else     { $errors++; logln("  [ERR] medium failed for " . substr($srcAbs, -90)); }
+        }
     } else {
         $skipped++;
     }
 }
 
 logln("Done. photos={$total} madeThumb={$madeT} madeMedium={$madeM} missingSrc={$missing} skipped={$skipped} errors={$errors}");
-exit( ($errors>0) ? 1 : 0 );
+exit(($errors>0) ? 1 : 0);
