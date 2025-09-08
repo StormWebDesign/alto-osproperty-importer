@@ -27,7 +27,19 @@ define('LOG_FILE_IMPORT', __DIR__ . '/logs/alto-import.log');
 // This is the absolute base path on your server where OS Property stores property images.
 // OS Property typically creates subfolders for each property ID.
 // Filesystem (absolute path) — where files are saved:
-define('PROPERTY_IMAGE_UPLOAD_BASE_PATH', $_SERVER['DOCUMENT_ROOT'] . '/images/osproperty/properties/');
+// Resolve document root for both CLI and web runtimes
+// --- Image Upload Configuration (works in CLI & web) ---
+$docRootGuess = realpath(__DIR__ . '/../../'); // -> /home/.../public_html
+$docRootEnv   = getenv('DOC_ROOT') ?: '';
+$docRootSrv   = isset($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] : '';
 
-// DB path (what goes into #__osrs_photos.image) — RELATIVE to images/osproperty/
+$docRoot = $docRootEnv ?: ($docRootSrv ?: $docRootGuess);
+
+// Final absolute filesystem path (keep trailing slash)
+define(
+    'PROPERTY_IMAGE_UPLOAD_BASE_PATH',
+    rtrim($docRoot, '/') . '/images/osproperty/properties/'
+);
+
+// DB path (stored in #__osrs_photos.image) — relative to images/osproperty/
 define('PROPERTY_IMAGE_DB_BASE_PATH_PREFIX', 'properties/');

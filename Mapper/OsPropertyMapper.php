@@ -550,6 +550,23 @@ class OsPropertyMapper
         return false;
     }
 
+    private static function ensureImageBaseWritable(): bool
+    {
+        $base = rtrim(\PROPERTY_IMAGE_UPLOAD_BASE_PATH, '/') . '/';
+        if (!is_dir($base)) {
+            @mkdir($base, 0775, true);
+        }
+        if (!is_dir($base)) {
+            Logger::log("Image base dir does not exist: {$base}", 'CRITICAL');
+            return false;
+        }
+        if (!is_writable($base)) {
+            Logger::log("Image base dir not writable: {$base}", 'CRITICAL');
+            return false;
+        }
+        return true;
+    }
+
 
 
     /**
@@ -562,8 +579,18 @@ class OsPropertyMapper
      * @param string $imageDescription A description for the image.
      * @return bool True on success, false on failure.
      */
-    private static function downloadAndMapImage(string $imageUrl, int $propertyOsId, string $imageOriginalName, int $ordering, string $imageDescription = ''): bool
-    {
+    private static function downloadAndMapImage(
+        string $imageUrl,
+        int $propertyOsId,
+        string $imageOriginalName,
+        int $ordering,
+        string $imageDescription = '',
+        bool $isDefault = false
+    ): bool {
+        if (!self::ensureImageBaseWritable()) {
+            return false;
+        }
+
         // Create the property-specific directory if it doesn't exist
         $propertyImageDir = \PROPERTY_IMAGE_UPLOAD_BASE_PATH . $propertyOsId . '/';
         Logger::log("DEBUG: propertyImageDir = " . $propertyImageDir, 'DEBUG');
@@ -653,7 +680,7 @@ class OsPropertyMapper
 
         // Insert or update the image record in ix3gf_osrs_photos
         try {
-            // Check if this image (by its pro_id and the generated image path) already exists in the DB
+            // Check if row exists
             $stmtCheck = self::$db->prepare("SELECT id FROM `" . \DB_PREFIX . "osrs_photos` WHERE pro_id = ? AND image = ?");
             $stmtCheck->execute([$propertyOsId, $dbImagePath]);
             $existingPhotoId = $stmtCheck->fetchColumn();
@@ -661,21 +688,19 @@ class OsPropertyMapper
             unset($stmtCheck);
 
             if ($existingPhotoId) {
-                // Update existing record
                 $stmt = self::$db->prepare("
-                    UPDATE `" . \DB_PREFIX . "osrs_photos`
-                    SET image_desc = ?, ordering = ?
-                    WHERE id = ?
-                ");
-                $stmt->execute([$imageDescription, $ordering, $existingPhotoId]);
+                UPDATE `" . \DB_PREFIX . "osrs_photos`
+                SET image_desc = ?, ordering = ?, is_default = ?
+                WHERE id = ?
+            ");
+                $stmt->execute([$imageDescription, $ordering, ($isDefault ? 1 : 0), $existingPhotoId]);
                 Logger::log("        Updated existing photo record (ID: " . $existingPhotoId . ") for property " . $propertyOsId . ".", 'INFO');
             } else {
-                // Insert new record
                 $stmt = self::$db->prepare("
-                    INSERT INTO `" . \DB_PREFIX . "osrs_photos` (pro_id, image, image_desc, ordering)
-                    VALUES (?, ?, ?, ?)
-                ");
-                $stmt->execute([$propertyOsId, $dbImagePath, $imageDescription, $ordering]);
+                INSERT INTO `" . \DB_PREFIX . "osrs_photos` (pro_id, image, image_desc, ordering, is_default)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+                $stmt->execute([$propertyOsId, $dbImagePath, $imageDescription, $ordering, ($isDefault ? 1 : 0)]);
                 Logger::log("        Inserted new photo record (ID: " . self::$db->lastInsertId() . ") for property " . $propertyOsId . ".", 'INFO');
             }
             unset($stmt);
@@ -1094,6 +1119,47 @@ class OsPropertyMapper
         }
     }
 
+    /** 
+     * Collect image candidates from either <files><file>… or <images><image>…
+     * Returns an array of ['url' => string, 'name' => string, 'caption' => string]
+     */
+    private static function collectImageCandidates(\SimpleXMLElement $p): array
+    {
+        $out = [];
+
+        // 1) Newer logic: <files><file>
+        if (isset($p->files) && $p->files->file) {
+            foreach ($p->files->file as $fileNode) {
+                $typeAttr = isset($fileNode['type']) ? (string)$fileNode['type'] : null;
+                $url      = (string)($fileNode->url ?? '');
+                $name     = (string)($fileNode->name ?? '');
+                $caption  = (string)($fileNode->caption ?? '');
+
+                if ($url !== '' && self::isProbablyImage($url, $name, $typeAttr)) {
+                    $out[] = ['url' => $url, 'name' => $name, 'caption' => $caption];
+                }
+            }
+        }
+
+        // 2) Fallback: <images><image>
+        // Only use this if we didn't find anything in <files>
+        if (empty($out) && isset($p->images) && $p->images->image) {
+            foreach ($p->images->image as $imageNode) {
+                // Common shapes: <image><url>, <caption>
+                // Some feeds also provide <large_url> or attributes — prefer largest available
+                $url = (string)($imageNode->large_url ?? $imageNode->url ?? '');
+                $name = (string)($imageNode->name ?? basename((string)$url));
+                $caption = (string)($imageNode->caption ?? '');
+
+                if ($url !== '' && self::isProbablyImage($url, $name, null)) {
+                    $out[] = ['url' => $url, 'name' => $name, 'caption' => $caption];
+                }
+            }
+        }
+
+        return $out;
+    }
+
 
     /**
      * Maps property details from XML (SimpleXMLElement object) to database tables.
@@ -1440,48 +1506,33 @@ class OsPropertyMapper
             }
             unset($stmt);
 
-            // --- Process Images ---
-            if ($success && $propertyOsId && isset($propertyXmlObject->files) && $propertyXmlObject->files->file) {
-                $imageOrdering = 0;
-                $foundAny = false;
+            // --- Process Images (supports <files> and <images>) ---
+            if ($success && $propertyOsId) {
+                $candidates = self::collectImageCandidates($propertyXmlObject);
 
-                $fileCount = iterator_count($propertyXmlObject->files->file);
-                Logger::log("    Found {$fileCount} <file> nodes for Alto {$altoId}.", 'DEBUG');
+                Logger::log("    Image candidates found: " . count($candidates) . " for Alto {$altoId}.", 'DEBUG');
 
-                foreach ($propertyXmlObject->files->file as $fileNode) {
-                    $fileType    = isset($fileNode['type']) ? (string)$fileNode['type'] : null;
-                    $fileUrl     = (string)$fileNode->url;
-                    $fileName    = (string)$fileNode->name;
-                    $fileCaption = (string)$fileNode->caption;
-
-                    Logger::log("    File node: type='" . ($fileType ?? '') . "' url='{$fileUrl}' name='{$fileName}'", 'DEBUG');
-
-                    if (empty($fileUrl)) {
-                        Logger::log("    SKIP image for Alto {$altoId}: empty URL.", 'WARNING');
-                        continue;
-                    }
-
-                    if (!self::isProbablyImage($fileUrl, $fileName, $fileType)) {
-                        Logger::log("    SKIP file for Alto {$altoId}: not recognised as image (type='{$fileType}', url='{$fileUrl}', name='{$fileName}').", 'INFO');
-                        continue;
-                    }
-
-                    $foundAny = true;
-                    Logger::log("    Processing image for property {$altoId}: {$fileUrl} (type='{$fileType}', name='{$fileName}')", 'INFO');
-
-                    $ok = self::downloadAndMapImage($fileUrl, $propertyOsId, $fileName, $imageOrdering, $fileCaption);
+                $ordering = 0;
+                foreach ($candidates as $idx => $img) {
+                    $isDefault = ($idx === 0);
+                    $ok = self::downloadAndMapImage(
+                        $img['url'],
+                        (int)$propertyOsId,
+                        (string)$img['name'],
+                        $ordering,
+                        (string)$img['caption'],
+                        $isDefault
+                    );
                     if ($ok) {
-                        $imageOrdering++;
+                        $ordering++;
                     } else {
-                        Logger::log("    ERROR processing image for Alto {$altoId}: {$fileUrl}", 'ERROR');
+                        Logger::log("    ERROR processing image for Alto {$altoId}: {$img['url']}", 'ERROR');
                     }
                 }
 
-                if (!$foundAny) {
+                if ($ordering === 0) {
                     Logger::log("    No importable images detected for property {$altoId}.", 'INFO');
                 }
-            } else if ($success && $propertyOsId) {
-                Logger::log("    No <files><file> nodes found for property {$altoId} or property mapping failed.", 'INFO');
             }
 
 
