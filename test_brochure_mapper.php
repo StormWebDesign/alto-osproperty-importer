@@ -18,7 +18,9 @@ if (!file_exists($xmlPath)) {
 }
 
 $xml = simplexml_load_file($xmlPath);
-$result = BrochureMapper::extractPdfUrls($xml);
+
+// ✅ Call the correct method name from the current mapper class
+$result = BrochureMapper::map($xml);
 
 echo "PDF URLs detected:\n";
 print_r($result);

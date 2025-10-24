@@ -7,6 +7,8 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/AltoApi.php'; // Needed for fetchFullPropertyDetailsByUrl
 require_once __DIR__ . '/Mapper/OsPropertyMapper.php'; // Ensure mapper is loaded after JFilterOutput dummy
+require_once __DIR__ . '/Mapper/CategoryMapper.php';
+require_once __DIR__ . '/Mapper/BrochureMapper.php';
 
 use AltoSync\Logger;
 use AltoSync\AltoApi;

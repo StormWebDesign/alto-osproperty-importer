@@ -10,6 +10,7 @@ require_once __DIR__ . '/../Logger.php'; // Ensure Logger is available here
 
 use AltoSync\Logger; // Use the Logger class
 use AltoSync\Mapper\CategoryMapper;
+use AltoSync\Mapper\BrochureMapper;
 
 
 /**
@@ -691,18 +692,20 @@ class OsPropertyMapper
 
             if ($existingPhotoId) {
                 $stmt = self::$db->prepare("
-                UPDATE `" . \DB_PREFIX . "osrs_photos`
-                SET image_desc = ?, ordering = ?, is_default = ?
-                WHERE id = ?
-            ");
-                $stmt->execute([$imageDescription, $ordering, ($isDefault ? 1 : 0), $existingPhotoId]);
+                    UPDATE `" . \DB_PREFIX . "osrs_photos`
+                    SET image_desc = ?, ordering = ?
+                    WHERE id = ?
+                ");
+                $stmt->execute([$imageDescription, $ordering, $existingPhotoId]);
+
                 Logger::log("        Updated existing photo record (ID: " . $existingPhotoId . ") for property " . $propertyOsId . ".", 'INFO');
             } else {
                 $stmt = self::$db->prepare("
-                INSERT INTO `" . \DB_PREFIX . "osrs_photos` (pro_id, image, image_desc, ordering, is_default)
-                VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO `" . \DB_PREFIX . "osrs_photos` (pro_id, image, image_desc, ordering)
+                    VALUES (?, ?, ?, ?)
             ");
-                $stmt->execute([$propertyOsId, $dbImagePath, $imageDescription, $ordering, ($isDefault ? 1 : 0)]);
+                $stmt->execute([$propertyOsId, $dbImagePath, $imageDescription, $ordering]);
+
                 Logger::log("        Inserted new photo record (ID: " . self::$db->lastInsertId() . ") for property " . $propertyOsId . ".", 'INFO');
             }
             unset($stmt);
@@ -1303,7 +1306,7 @@ class OsPropertyMapper
                 $categoryId = self::determineCategoryId($propertyXmlObject);
                 Logger::log("  ⚠️ CategoryMapper returned null; using legacy determineCategoryId() → Category ID {$categoryId}", 'INFO');
             }
-            
+
             // Summary line for this property
             Logger::log("  🏁 Completed mapping for property {$propertyXmlObject->id} → type_id={$propertyTypeId}, category_id={$categoryId}", 'INFO');
 
@@ -1378,27 +1381,24 @@ class OsPropertyMapper
             // The `ref` column is for the property reference. This is where Alto's prop_id (altoId) should go.
             $propertyRef = (string)$altoId;
 
-            // --- PDF File Mapping ---
-            $pdfUrls = [];
-            if (isset($propertyXmlObject->files) && $propertyXmlObject->files->file) {
-                foreach ($propertyXmlObject->files->file as $fileNode) {
-                    $fileUrl = (string)$fileNode->url;
-                    if (strtolower(pathinfo($fileUrl, PATHINFO_EXTENSION)) === 'pdf') {
-                        $pdfUrls[] = $fileUrl;
-                    }
-                }
-            }
+            // --- PDF File Mapping via BrochureMapper ---
+            $pdfData = BrochureMapper::map($propertyXmlObject);
 
-            $proPdfFile = $pdfUrls[0] ?? '';
-            $proPdfFile1 = $pdfUrls[1] ?? '';
-            $proPdfFile2 = $pdfUrls[2] ?? '';
-            $proPdfFile3 = $pdfUrls[3] ?? '';
-            $proPdfFile4 = $pdfUrls[4] ?? '';
-            $proPdfFile5 = $pdfUrls[5] ?? '';
-            $proPdfFile6 = $pdfUrls[6] ?? '';
-            $proPdfFile7 = $pdfUrls[7] ?? '';
-            $proPdfFile8 = $pdfUrls[8] ?? '';
-            $proPdfFile9 = $pdfUrls[9] ?? '';
+            // These fields are returned as an associative array matching OS Property schema:
+            // ['pro_pdf_file', 'pro_pdf_file1', ..., 'pro_pdf_file9']
+            $proPdfFile  = $pdfData['pro_pdf_file']  ?? '';
+            $proPdfFile1 = $pdfData['pro_pdf_file1'] ?? '';
+            $proPdfFile2 = $pdfData['pro_pdf_file2'] ?? '';
+            $proPdfFile3 = $pdfData['pro_pdf_file3'] ?? '';
+            $proPdfFile4 = $pdfData['pro_pdf_file4'] ?? '';
+            $proPdfFile5 = $pdfData['pro_pdf_file5'] ?? '';
+            $proPdfFile6 = $pdfData['pro_pdf_file6'] ?? '';
+            $proPdfFile7 = $pdfData['pro_pdf_file7'] ?? '';
+            $proPdfFile8 = $pdfData['pro_pdf_file8'] ?? '';
+            $proPdfFile9 = $pdfData['pro_pdf_file9'] ?? '';
+
+            Logger::log("  ✅ BrochureMapper integrated. Primary brochure: {$proPdfFile}", 'DEBUG');
+
 
             // Parameters for the INSERT ... ON DUPLICATE KEY UPDATE statement
             $params = [
