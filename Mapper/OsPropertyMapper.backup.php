@@ -9,8 +9,6 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../Logger.php'; // Ensure Logger is available here
 
 use AltoSync\Logger; // Use the Logger class
-use AltoSync\Mapper\CategoryMapper;
-
 
 /**
  * Class OsPropertyMapper
@@ -1264,50 +1262,10 @@ class OsPropertyMapper
             $countryId = self::getOrCreateLookupId(self::$db, 'osrs_countries', 'country_name', $country);
 
             // Use the new functions to get the correct pro_type and category_id
-            // $propertyTypeId = self::getOrCreatePropertyTypeId(self::$db, $propertyTypeAlto);
-            // Map to your fixed OS Property categories (5/6/7)
-            // $categoryId = self::determineCategoryId($propertyXmlObject);
-            // Replace the above three lines with the following:
-
-            // Use the new functions to get the correct pro_type and category_id
             $propertyTypeId = self::getOrCreatePropertyTypeId(self::$db, $propertyTypeAlto);
-
-            // --- CATEGORY MAPPING (Alto → OS Property) ---
-            $market   = (string)($propertyXmlObject->marketing->market ?? $propertyXmlObject->market ?? $propertyXmlObject->department ?? '');
-            $category = (string)($propertyXmlObject->marketing->category ?? $propertyXmlObject->category ?? $propertyXmlObject->type ?? '');
-
-            // If no market provided, infer it from web_status (Alto v13 convention)
-            if (empty($market) && isset($propertyXmlObject->web_status)) {
-                $webStatus = (int)$propertyXmlObject->web_status;
-                if ($webStatus >= 100 && $webStatus < 200) {
-                    $market = 'To Let';
-                } elseif ($webStatus >= 200 && $webStatus < 300) {
-                    $market = 'For Sale';
-                }
-                Logger::log("  Inferred market '{$market}' from web_status {$webStatus}", 'DEBUG');
-            }
-
-            // Run through CategoryMapper
-            Logger::log("  Proceeding to CategoryMapper with Market='{$market}' and Category='{$category}'", 'DEBUG');
-
-            $newCategoryId = CategoryMapper::toOsCategoryId($market, $category);
-
-            // Log exactly what the mapper attempted
-            Logger::log("  CategoryMapper input → Market='{$market}', Category='{$category}'", 'DEBUG');
-
-            // Apply result with fallback
-            if ($newCategoryId !== null) {
-                $categoryId = $newCategoryId;
-                Logger::log("  ✅ CategoryMapper mapped '{$market}' + '{$category}' → OS Property Category ID {$categoryId}", 'INFO');
-            } else {
-                $categoryId = self::determineCategoryId($propertyXmlObject);
-                Logger::log("  ⚠️ CategoryMapper returned null; using legacy determineCategoryId() → Category ID {$categoryId}", 'INFO');
-            }
-            
-            // Summary line for this property
-            Logger::log("  🏁 Completed mapping for property {$propertyXmlObject->id} → type_id={$propertyTypeId}, category_id={$categoryId}", 'INFO');
-
-
+            // $categoryId = self::getOrCreateCategoryId(self::$db, $webStatus);
+            // Map to your fixed OS Property categories (5/6/7)
+            $categoryId = self::determineCategoryId($propertyXmlObject);
 
             // Determine OS Property status (published field) based on Alto web_status
             $osPropertyStatus = 1; // Default to Published (1)

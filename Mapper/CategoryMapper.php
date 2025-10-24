@@ -27,9 +27,10 @@ class CategoryMapper
         $m = self::normalise($market);
         $c = self::normalise($category);
 
-        // Defensive logging for diagnostics
+        // Log the raw and normalised inputs
         Logger::log("CategoryMapper: Raw market='{$market}', category='{$category}' => normalised='{$m}|{$c}'", 'DEBUG');
 
+        // Mapping table
         $map = [
             'for sale|residential' => 5,
             'for sale|commercial'  => 7,
@@ -37,16 +38,16 @@ class CategoryMapper
             'to let|commercial'    => 8,
         ];
 
-        $key = $m . '|' . $c;
-        $result = $map[$key] ?? null;
+        $key = "{$m}|{$c}";
 
-        if ($result === null) {
-            Logger::log("CategoryMapper: No mapping found for combination '{$market}' + '{$category}'", 'WARNING');
-        } else {
-            Logger::log("CategoryMapper: Mapped '{$market}' + '{$category}' to category ID {$result}", 'INFO');
+        if (isset($map[$key])) {
+            $mappedId = $map[$key];
+            Logger::log("CategoryMapper: Mapped '{$market}' + '{$category}' → category_id={$mappedId} (normalised='{$key}')", 'INFO');
+            return $mappedId;
         }
 
-        return $result;
+        Logger::log("CategoryMapper: No match found for '{$market}' + '{$category}' (normalised='{$key}')", 'WARNING');
+        return null;
     }
 
     /**
@@ -54,17 +55,33 @@ class CategoryMapper
      */
     private static function normalise(?string $s): string
     {
-        if ($s === null) return '';
-        $s = trim(preg_replace('/\s+/', ' ', strtolower($s)));
+        if ($s === null) {
+            return '';
+        }
 
-        // Handle common variants
+        $s = strtolower(trim(preg_replace('/\s+/', ' ', (string)$s)));
+
+        // Simplify common market terms
+        if (in_array($s, ['sale', 'sales', 'forsale', 'for-sale'])) {
+            return 'for sale';
+        }
+        if (in_array($s, ['let', 'lettings', 'tolet', 'to-let', 'rent', 'rental', 'rentals'])) {
+            return 'to let';
+        }
+
+        // 🧠 Expanded matching for residential/commercial property types
+        if (preg_match('/house|flat|apartment|bungalow|cottage|studio|terraced|semi|detached/i', $s)) {
+            return 'residential';
+        }
+        if (preg_match('/shop|office|industrial|warehouse|land|unit|retail|commercial/i', $s)) {
+            return 'commercial';
+        }
+
+        // Normalise shorthand variants
         return match ($s) {
-            'sale', 'sales'           => 'for sale',
-            'letting', 'lettings',
-            'rental', 'rent', 'rentals' => 'to let',
-            'res', 'residentials'     => 'residential',
-            'comm', 'commercials'     => 'commercial',
-            default                   => $s,
+            'res', 'residentials' => 'residential',
+            'comm', 'commercials' => 'commercial',
+            default               => $s,
         };
     }
 }
