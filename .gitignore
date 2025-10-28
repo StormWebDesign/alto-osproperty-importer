@@ -5,3 +5,4 @@ whoami.php
 tokens.txt
 get_token.log
 logs/alto-import.log
+*.log
