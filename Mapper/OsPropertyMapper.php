@@ -7,10 +7,15 @@ namespace AltoSync\Mapper;
 // Include the configuration file for database credentials and other settings
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../Logger.php'; // Ensure Logger is available here
+require_once __DIR__ . '/AddressMapper.php';
+require_once __DIR__ . '/CategoryMapper.php';
+require_once __DIR__ . '/BrochureMapper.php';
+
 
 use AltoSync\Logger; // Use the Logger class
 use AltoSync\Mapper\CategoryMapper;
 use AltoSync\Mapper\BrochureMapper;
+use AltoSync\Mapper\AddressMapper;
 
 
 /**
@@ -1212,21 +1217,40 @@ class OsPropertyMapper
             $receptions = (int)$propertyXmlObject->receptions;
 
             // Address components for OS Property `#__osrs_properties` table
-            $addressName = (string)$propertyXmlObject->address->name;
-            $addressStreet = (string)$propertyXmlObject->address->street;
-            $addressLocality = (string)$propertyXmlObject->address->locality;
-            $town = (string)$propertyXmlObject->address->town;
-            $county = (string)$propertyXmlObject->address->county;
-            $postcode = (string)$propertyXmlObject->address->postcode;
-            $country = (string)$propertyXmlObject->country ?: 'United Kingdom';
+            // $addressName = (string)$propertyXmlObject->address->name;
+            // $addressStreet = (string)$propertyXmlObject->address->street;
+            // $addressLocality = (string)$propertyXmlObject->address->locality;
+            // $town = (string)$propertyXmlObject->address->town;
+            // $county = (string)$propertyXmlObject->address->county;
+            // $postcode = (string)$propertyXmlObject->address->postcode;
+            // $country = (string)$propertyXmlObject->country ?: 'United Kingdom';
 
             // Use <display> tag for pro_name (property title)
-            $propertyTitle = (string)$propertyXmlObject->address->display ?: \trim(\implode(', ', \array_filter([$addressName, $addressStreet, $addressLocality])));
-            if (empty($propertyTitle)) {
-                $propertyTitle = "Property ID: " . $altoId; // Fallback title
-            }
+            // $propertyTitle = (string)$propertyXmlObject->address->display ?: \trim(\implode(', ', \array_filter([$addressName, $addressStreet, $addressLocality])));
+            // if (empty($propertyTitle)) {
+            //     $propertyTitle = "Property ID: " . $altoId; // Fallback title
+            // }
             // Use concatenated address for the 'address' column
-            $concatAddress = \trim(\implode(', ', \array_filter([$addressName, $addressStreet, $addressLocality])));
+            // $concatAddress = \trim(\implode(', ', \array_filter([$addressName, $addressStreet, $addressLocality])));
+
+            // --- ADDRESS MAPPING ---
+            $addressMapper = new AddressMapper(self::$db);
+            $addressData = $addressMapper->mapAddress($propertyXmlObject->address, 'United Kingdom');
+
+            // Property title logic remains here (unchanged)
+            $propertyTitle = (string)$propertyXmlObject->address->display
+                ?: trim(implode(', ', array_filter([
+                    (string)$propertyXmlObject->address->name,
+                    (string)$propertyXmlObject->address->street,
+                    (string)$propertyXmlObject->address->locality
+                ])))
+                ?: "Property ID: " . $altoId;
+
+            $concatAddress = $addressData['address'];
+            $cityId        = $addressData['city_id'];
+            $stateId       = $addressData['state_id'];
+            $countryId     = $addressData['country_id'];
+            $postcode      = $addressData['postcode'];
 
 
             $priceRaw       = (string)($propertyXmlObject->price->value ?? $propertyXmlObject->price ?? '');
@@ -1261,10 +1285,10 @@ class OsPropertyMapper
             $latitude = (string)$propertyXmlObject->latitude;
             $longitude = (string)$propertyXmlObject->longitude;
 
-            // Lookup IDs for OS Property specific tables
-            $cityId = self::getOrCreateLookupId(self::$db, 'osrs_cities', 'city', $town);
-            $stateId = self::getOrCreateLookupId(self::$db, 'osrs_states', 'state_name', $county);
-            $countryId = self::getOrCreateLookupId(self::$db, 'osrs_countries', 'country_name', $country);
+            // // Lookup IDs for OS Property specific tables
+            // $cityId = self::getOrCreateLookupId(self::$db, 'osrs_cities', 'city', $town);
+            // $stateId = self::getOrCreateLookupId(self::$db, 'osrs_states', 'state_name', $county);
+            // $countryId = self::getOrCreateLookupId(self::$db, 'osrs_countries', 'country_name', $country);
 
             // Use the new functions to get the correct pro_type and category_id
             // $propertyTypeId = self::getOrCreatePropertyTypeId(self::$db, $propertyTypeAlto);
@@ -1276,24 +1300,63 @@ class OsPropertyMapper
             $propertyTypeId = self::getOrCreatePropertyTypeId(self::$db, $propertyTypeAlto);
 
             // --- CATEGORY MAPPING (Alto → OS Property) ---
-            $market   = (string)($propertyXmlObject->marketing->market ?? $propertyXmlObject->market ?? $propertyXmlObject->department ?? '');
-            $category = (string)($propertyXmlObject->marketing->category ?? $propertyXmlObject->category ?? $propertyXmlObject->type ?? '');
+            //
+            // Determine both the MARKET ("For Sale" / "To Let")
+            // and CATEGORY ("Residential" / "Commercial")
+            // using official Alto v13 API conventions.
 
-            // If no market provided, infer it from web_status (Alto v13 convention)
-            if (empty($market) && isset($propertyXmlObject->web_status)) {
-                $webStatus = (int)$propertyXmlObject->web_status;
-                if ($webStatus >= 100 && $webStatus < 200) {
-                    $market = 'To Let';
-                } elseif ($webStatus >= 200 && $webStatus < 300) {
-                    $market = 'For Sale';
-                }
-                Logger::log("  Inferred market '{$market}' from web_status {$webStatus}", 'DEBUG');
+            $webStatusAttr = (string)($propertyXmlObject->web_status['id'] ?? '');
+            $webStatusNum  = is_numeric($webStatusAttr)
+                ? (int)$webStatusAttr
+                : (int)($propertyXmlObject->web_status ?? 0);
+
+            $isCommercial = isset($propertyXmlObject->commercial);
+            $transaction  = strtolower((string)($propertyXmlObject->commercial->transaction ?? ''));
+
+            // Infer Market
+            if ($webStatusNum >= 100 && $webStatusNum <= 104) {
+                $market = 'To Let';
+            } elseif ($webStatusNum >= 0 && $webStatusNum <= 4) {
+                $market = 'For Sale';
+            } elseif (in_array($transaction, ['rental', 'let', 'lease'])) {
+                $market = 'To Let';
+            } elseif (in_array($transaction, ['sale', 'sales'])) {
+                $market = 'For Sale';
+            } else {
+                $market = (string)($propertyXmlObject->department
+                    ?? $propertyXmlObject->marketing->market
+                    ?? '');
             }
 
-            // Run through CategoryMapper
-            Logger::log("  Proceeding to CategoryMapper with Market='{$market}' and Category='{$category}'", 'DEBUG');
+            // Infer Category
+            if ($isCommercial || str_contains(strtolower((string)$propertyXmlObject->type), 'commercial')) {
+                $category = 'Commercial';
+            } else {
+                $category = 'Residential';
+            }
 
-            $newCategoryId = CategoryMapper::toOsCategoryId($market, $category);
+            Logger::log("  Inferred Market='{$market}', Category='{$category}' from web_status={$webStatusNum}, transaction='{$transaction}'", 'DEBUG');
+
+            // Map via CategoryMapper
+            $databaseAttr = (string)($propertyXmlObject['database'] ?? '');
+            $newCategoryId = CategoryMapper::toOsCategoryId($market, $category, $databaseAttr);
+
+            Logger::log("  CategoryMapper input → Market='{$market}', Category='{$category}'", 'DEBUG');
+
+            if ($newCategoryId !== null) {
+                $categoryId = $newCategoryId;
+                Logger::log("  ✅ CategoryMapper mapped '{$market}' + '{$category}' → OS Property Category ID {$categoryId}", 'INFO');
+            } else {
+                $categoryId = self::determineCategoryId($propertyXmlObject);
+                Logger::log("  ⚠️ CategoryMapper returned null; using legacy determineCategoryId() → Category ID {$categoryId}", 'INFO');
+            }
+
+            Logger::log("  🏁 Completed mapping for property {$propertyXmlObject->id} → type_id={$propertyTypeId}, category_id={$categoryId}", 'INFO');
+
+
+            $databaseAttr = (string)($propertyXmlObject['database'] ?? '');
+            $newCategoryId = CategoryMapper::toOsCategoryId($market, $category, $databaseAttr);
+
 
             // Log exactly what the mapper attempted
             Logger::log("  CategoryMapper input → Market='{$market}', Category='{$category}'", 'DEBUG');
