@@ -6,3 +6,6 @@ tokens.txt
 get_token.log
 logs/alto-import.log
 *.log
+/logs
+tokens.txt
+/xml

@@ -1,56 +1,41 @@
 <?php
-/**
- * reset_all_data.php
- * 
- * Completely clears OS Property import data so you can run a clean test.
- * Run via CLI only: php reset_all_data.php
- */
-
-use Joomla\Database\DatabaseDriver;
-use Joomla\Database\DatabaseFactory;
-use Joomla\CMS\Factory;
+// /public_html/cli/alto-sync/reset_all_data.php
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/Logger.php';
+
+use AltoSync\Logger;
 
 echo "------------------------------------------------------------\n";
 echo "🧹  Resetting OS Property + Alto Importer Data\n";
 echo "------------------------------------------------------------\n";
 
 try {
-    // Bootstrap Joomla database connection
-    $db = \Joomla\CMS\Factory::getContainer()->get('DatabaseDriver');
+    $db = new PDO(
+        'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+        DB_USER,
+        DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
 
-    $truncateTables = [
-        'ix3gf_osrs_properties',
-        'ix3gf_osrs_photos',
-        'ix3gf_osrs_property_amenities',
-        'ix3gf_osrs_amenities',
-        'ix3gf_osrs_xml_details',
-        'ix3gf_osrs_property_categories',
+    $tables = [
+        DB_PREFIX . 'osrs_properties',
+        DB_PREFIX . 'osrs_photos',
+        DB_PREFIX . 'osrs_property_categories',
+        DB_PREFIX . 'alto_properties',
+        DB_PREFIX . 'alto_branches'
     ];
 
-    foreach ($truncateTables as $table) {
-        $query = "TRUNCATE TABLE `$table`";
-        $db->setQuery($query)->execute();
-        echo "✅ Truncated: $table\n";
-    }
-
-    // Reset Alto tracking tables
-    $updates = [
-        "UPDATE `ix3gf_alto_properties` SET processed = 0, last_synced = NULL",
-        "UPDATE `ix3gf_alto_branches` SET last_synced = NULL"
-    ];
-    foreach ($updates as $sql) {
-        $db->setQuery($sql)->execute();
-        echo "🔄 Updated: $sql\n";
+    foreach ($tables as $table) {
+        $db->exec("TRUNCATE TABLE `$table`");
+        echo "✅ Truncated $table\n";
     }
 
     echo "------------------------------------------------------------\n";
-    echo "🎯 Reset complete! You can now run:\n";
-    echo "   php83 sync.php\n";
-    echo "   php83 import.php\n";
+    echo "✅ All OS Property + Alto Importer tables cleared successfully\n";
     echo "------------------------------------------------------------\n";
-} catch (Exception $e) {
+} catch (Throwable $e) {
     echo "❌ ERROR: " . $e->getMessage() . "\n";
+    Logger::log("Reset failed: " . $e->getMessage(), 'CRITICAL');
     exit(1);
 }
