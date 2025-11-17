@@ -7,15 +7,22 @@ namespace AltoSync\Mapper;
 // Include the configuration file for database credentials and other settings
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../Logger.php'; // Ensure Logger is available here
+require_once __DIR__ . '/../Helpers/AutoResetHelper.php';
 require_once __DIR__ . '/AddressMapper.php';
 require_once __DIR__ . '/CategoryMapper.php';
 require_once __DIR__ . '/BrochureMapper.php';
+require_once __DIR__ . '/PlansMapper.php';
+require_once __DIR__ . '/EnergyRatingMapper.php';
+
 
 
 use AltoSync\Logger; // Use the Logger class
+use AltoSync\Helpers\AutoResetHelper;
 use AltoSync\Mapper\CategoryMapper;
 use AltoSync\Mapper\BrochureMapper;
 use AltoSync\Mapper\AddressMapper;
+use AltoSync\Mapper\PlansMapper;
+use AltoSync\Mapper\EnergyRatingMapper;
 
 
 /**
@@ -1610,6 +1617,25 @@ class OsPropertyMapper
                 $success = false;
             }
             unset($stmt);
+
+            // ------------------------------------------------------------
+            // NEW: Reset pro_pdf_file1–9 before applying floorplans/EPC
+            // ------------------------------------------------------------
+            AutoResetHelper::resetExtraFilesObject($propertyXmlObject, $propertyOsId, self::$db);
+
+            // ------------------------------------------------------------
+            // NEW: Floorplans (type=2) → pro_pdf_file2–4
+            // ------------------------------------------------------------
+            $plansMapper = new PlansMapper();
+            $plansMapper->map($propertyOsId, $propertyXmlObject, self::$db);
+
+            // ------------------------------------------------------------
+            // NEW: EPC / Energy Rating (type=9) → pro_pdf_file5
+            // ------------------------------------------------------------
+            $epcMapper = new EnergyRatingMapper();
+            $epcMapper->map($propertyOsId, $propertyXmlObject, self::$db);
+
+
 
             // --- Process Images (supports <files> and <images>) ---
             if ($success && $propertyOsId) {
