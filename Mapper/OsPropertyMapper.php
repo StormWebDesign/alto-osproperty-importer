@@ -1404,54 +1404,10 @@ class OsPropertyMapper
             $webStatusNumeric = is_numeric($webStatus) ? (int)$webStatus : null;
 
             Logger::log("  DEBUG: Determining published status for Alto ID " . $altoId . " - web_status: '" . $webStatus . "'", 'DEBUG');
+            
+            // Always keep properties published unless explicitly handled elsewhere
+            // $osPropertyStatus = 1;
 
-            if ($webStatusNumeric !== null) {
-                switch ($webStatusNumeric) {
-                    case 0: // To Let / For Sale
-                    case 100: // To Let (New Lettings)
-                        $osPropertyStatus = 1; // Published
-                        Logger::log("  DEBUG: Mapped numeric web_status '" . $webStatus . "' to Published (1) for published status.", 'DEBUG');
-                        break;
-                    case 1: // Let Agreed / Under Offer
-                    case 2: // Let
-                    case 3: // Withdrawn
-                    case 4: // Completed
-                    case 101: // Let Agreed (New Lettings)
-                    case 102: // Let (New Lettings)
-                    case 103: // Withdrawn (New Lettings)
-                    case 104: // Completed (New Lettings)
-                        $osPropertyStatus = 0; // Unpublished
-                        Logger::log("  DEBUG: Mapped numeric web_status '" . $webStatus . "' to Unpublished (0) for published status.", 'DEBUG');
-                        break;
-                    default:
-                        $osPropertyStatus = 1; // Default to published if unknown numeric status
-                        Logger::log("  WARNING: Unknown numeric web_status for property " . $altoId . ": " . $webStatus . ". Defaulting to published (1) for published status.", 'WARNING');
-                        break;
-                }
-            } else { // Handle string web_status
-                switch ($webStatusLower) {
-                    case 'for sale':
-                    case 'to let':
-                    case 'available':
-                        $osPropertyStatus = 1; // Published
-                        Logger::log("  DEBUG: Mapped string web_status '" . $webStatus . "' to Published (1) for published status.", 'DEBUG');
-                        break;
-                    case 'sold':
-                    case 'let':
-                    case 'under offer':
-                    case 'sstc':
-                    case 'stc':
-                    case 'withdrawn':
-                    case 'potential':
-                        $osPropertyStatus = 0; // Unpublished/Archived in OS Property
-                        Logger::log("  DEBUG: Mapped string web_status '" . $webStatus . "' to Unpublished (0) for published status.", 'DEBUG');
-                        break;
-                    default:
-                        $osPropertyStatus = 1; // Default to published if unknown string status
-                        Logger::log("  WARNING: Unknown string web_status for property " . $altoId . ": " . $webStatus . ". Defaulting to published (1) for published status.", 'WARNING');
-                        break;
-                }
-            }
 
             // Prepare dates for MySQL (convertRIBUTES-MM-DDTHH:MM:SS.ms toRIBUTES-MM-DD) as 'created' and 'modified' are DATE type
             $createdDate = ($dateAdded ? \date('Y-m-d', \strtotime($dateAdded)) : \date('Y-m-d'));
