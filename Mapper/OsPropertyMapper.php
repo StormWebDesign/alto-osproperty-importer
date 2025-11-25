@@ -13,7 +13,7 @@ require_once __DIR__ . '/CategoryMapper.php';
 require_once __DIR__ . '/BrochureMapper.php';
 require_once __DIR__ . '/PlansMapper.php';
 require_once __DIR__ . '/EnergyRatingMapper.php';
-
+require_once __DIR__ . '/StatusMapper.php';
 
 
 use AltoSync\Logger; // Use the Logger class
@@ -23,6 +23,7 @@ use AltoSync\Mapper\BrochureMapper;
 use AltoSync\Mapper\AddressMapper;
 use AltoSync\Mapper\PlansMapper;
 use AltoSync\Mapper\EnergyRatingMapper;
+use AltoSync\Mapper\StatusMapper;
 
 
 /**
@@ -1214,6 +1215,21 @@ class OsPropertyMapper
                 ?? 'available'
             );
 
+            // --- NEW STATUS HANDLING (SSTC / Let Agreed) ---
+            $status = StatusMapper::map($webStatus);
+
+            if ($status !== null) {
+
+                Logger::log("  STATUSMAPPER: Alto web_status={$webStatus} → isSold={$status['isSold']} ({$status['label']})", 'INFO');
+
+                // Set OS Property isSold (even if system later also sets 'published')
+                $propertyIsSold = $status['isSold'];
+
+                // Store for later (update after INSERT)
+                $extraFieldStatus = $status['label'];
+            }
+
+
 
 
 
@@ -1611,6 +1627,34 @@ class OsPropertyMapper
                 // Keep the join table in sync with the single computed category
                 if ($propertyOsId) {
                     self::upsertPropertyCategoryLink((int)$propertyOsId, (int)$categoryId);
+                }
+                // ----------------------------------------------------
+                // NEW: Apply StatusMapper results
+                // ----------------------------------------------------
+                if (isset($propertyIsSold) && $propertyOsId) {
+
+                    // Update isSold in osrs_properties
+                    $stmtIsSold = self::$db->prepare("
+        UPDATE `" . \DB_PREFIX . "osrs_properties`
+        SET isSold = ?
+        WHERE id = ?
+    ");
+                    $stmtIsSold->execute([$propertyIsSold, $propertyOsId]);
+                    Logger::log("  STATUSMAPPER: Updated osrs_properties.isSold = {$propertyIsSold} for PID {$propertyOsId}", 'INFO');
+
+                    // Update the Extra Field "status"
+                    if (isset($extraFieldStatus)) {
+                        $stmtEF = self::$db->prepare("
+            UPDATE `" . \DB_PREFIX . "osrs_property_fields_value`
+            SET field_value = ?
+            WHERE pro_id = ? AND field_id = (
+                SELECT id FROM `" . \DB_PREFIX . "osrs_property_fields` WHERE field_name = 'status' LIMIT 1
+            )
+        ");
+                        $stmtEF->execute([$extraFieldStatus, $propertyOsId]);
+
+                        Logger::log("  STATUSMAPPER: Extra Field 'status' set to '{$extraFieldStatus}'", 'INFO');
+                    }
                 }
             } else {
                 Logger::log("  Failed to insert/update property " . $altoId . ": " . json_encode($stmt->errorInfo()), 'ERROR');
