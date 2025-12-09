@@ -1,0 +1,9 @@
+[2025-12-02 16:17:25 Europe/London] [INFO] ------------------------------------------------------------
+[2025-12-02 16:17:25 Europe/London] [INFO] 🧹 Starting OS Property image cleanup
+[2025-12-02 16:17:25 Europe/London] [INFO] Base directory: /home/sites/24a/d/ddaaffa754/public_html/images/osproperty/properties
+[2025-12-02 16:17:25 Europe/London] [INFO] ------------------------------------------------------------
+[2025-12-02 16:17:25 Europe/London] [INFO] SKIP: index.html (protected)
+[2025-12-02 16:17:25 Europe/London] [INFO] SKIP: medium (protected)
+[2025-12-02 16:17:25 Europe/London] [INFO] SKIP: panorama (protected)
+[2025-12-02 16:17:25 Europe/London] [INFO] SKIP: thumb (protected)
+[2025-12-02 16:17:25 Europe/London] [INFO] Cleanup completed.
