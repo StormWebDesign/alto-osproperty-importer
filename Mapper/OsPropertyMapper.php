@@ -810,11 +810,30 @@ class OsPropertyMapper
             Logger::log("  BrochureMapper done – primary: {$proPdfFile}", 'DEBUG');
 
             // INSERT/UPDATE for #__osrs_properties
+            //
+            // OS Property's SEF router extracts the FIRST numeric segment of the
+            // pro_alias field and uses it as the OS Property ID when resolving detail
+            // page URLs. The alias must therefore be prefixed with the OS Property ID
+            // (the small auto-increment integer), NOT the Alto property ID (an 8-digit
+            // external reference). Using the Alto ID causes the router to look for a
+            // property with that ID, find nothing, and either return 404 or load
+            // completely wrong data via a fallback query.
+            //
+            // For existing properties we know the OS Property ID already, so we can
+            // build the correct alias upfront. For new properties we don't know the ID
+            // until after the INSERT, so we temporarily use $altoId (guaranteed unique)
+            // and then immediately correct it below.
+            $propertySlug = self::createSlug($propertyTitle);
+            $existingOsId = self::getOsPropertyIdByAltoId($altoId); // 0 if not yet in DB
+            $proAlias     = $existingOsId
+                ? ($existingOsId . '-' . $propertySlug)
+                : $altoId; // temporary; corrected to {osId}-{slug} after INSERT
+
             $params = [
                 $altoId,
                 $propertyTitle,
                 $propertyTypeId,
-                self::createSlug($propertyTitle),
+                $proAlias,
                 $concatAddress,
                 $countryId,
                 $stateId,
@@ -927,6 +946,14 @@ class OsPropertyMapper
                 if ($rowCount === 1) {
                     $propertyOsId = (int) self::$db->lastInsertId();
                     Logger::log("  New OS Property ID {$propertyOsId} created for Alto {$altoId}", 'INFO');
+
+                    // The INSERT used $altoId as a temporary alias. Now that we have
+                    // the real OS Property ID, correct the alias to {osId}-{slug}.
+                    $correctAlias = $propertyOsId . '-' . $propertySlug;
+                    self::$db->prepare(
+                        "UPDATE `" . \DB_PREFIX . "osrs_properties` SET pro_alias = ? WHERE id = ?"
+                    )->execute([$correctAlias, $propertyOsId]);
+                    Logger::log("  pro_alias set to '{$correctAlias}' for new PID {$propertyOsId}", 'DEBUG');
                 } else {
                     $stmtGetId = self::$db->prepare("
                         SELECT id

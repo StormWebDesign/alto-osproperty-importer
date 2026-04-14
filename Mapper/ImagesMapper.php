@@ -174,29 +174,41 @@ class ImagesMapper
 
     /**
      * Decide whether a file node represents an image we should import.
+     *
+     * Alto type attributes for known non-image files:
+     *   2 = Floor plan  (handled by PlansMapper)
+     *   5 = Brochure/PDF
+     *   6 = Audio
+     *   7 = Video
+     *   9 = EPC/Energy rating  (handled by EnergyRatingMapper)
      */
     private static function isProbablyImage(string $url, string $originalName = '', ?string $typeAttr = null): bool
     {
-        $allowedExt = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $allowedExt       = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $nonImageTypes    = ['2', '5', '6', '7', '9'];
 
         $typeAttr = trim((string)$typeAttr);
         $urlPath  = parse_url($url, PHP_URL_PATH) ?: $url;
         $extUrl   = strtolower(pathinfo($urlPath, PATHINFO_EXTENSION));
         $extName  = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
 
-        $hasImgExt = in_array($extUrl, $allowedExt, true) || in_array($extName, $allowedExt, true);
-        $typeSuggestsImage = ($typeAttr === '' || $typeAttr === null || in_array($typeAttr, ['0', '1', 'image', 'photo'], true));
+        // Explicitly skip known non-image file types (floor plans, EPCs, PDFs, etc.)
+        if (in_array($typeAttr, $nonImageTypes, true)) {
+            return false;
+        }
 
-        if ($typeSuggestsImage && $hasImgExt) {
+        $hasImgExt = in_array($extUrl, $allowedExt, true) || in_array($extName, $allowedExt, true);
+
+        // File has a clear image extension – treat as image regardless of type attribute
+        if ($hasImgExt) {
             return true;
         }
 
-        if ($typeSuggestsImage) {
-            $ct = self::detectImageContentType($url, 8);
-            if ($ct !== null) {
-                Logger::log("    HEAD says image Content-Type '{$ct}' for URL: {$url}", 'DEBUG');
-                return true;
-            }
+        // No extension – use HEAD request to detect content type
+        $ct = self::detectImageContentType($url, 8);
+        if ($ct !== null) {
+            Logger::log("    HEAD says image Content-Type '{$ct}' for URL: {$url}", 'DEBUG');
+            return true;
         }
 
         return false;
@@ -373,6 +385,54 @@ class ImagesMapper
             Logger::log("        Image already exists locally: " . $localFilePath . ". Skipping download.", 'INFO');
         }
 
+        // Detect the actual image content type from the downloaded file and correct
+        // the extension if it doesn't match. Alto sometimes keeps a .png filename when
+        // the underlying file is JPEG (e.g. after a client re-saves as JPG in Paint and
+        // re-uploads). OS Property's own backend uses extension-based image loading, so
+        // a .png file containing JPEG data causes imagecreatefrompng() to return false,
+        // which then triggers an imagealphablending() fatal error in their code.
+        $actualInfo = @getimagesize($localFilePath);
+        if ($actualInfo) {
+            $detectedExt = match((int)$actualInfo[2]) {
+                IMAGETYPE_JPEG => 'jpg',
+                IMAGETYPE_PNG  => 'png',
+                IMAGETYPE_GIF  => 'gif',
+                IMAGETYPE_WEBP => 'webp',
+                default        => '',
+            };
+            $normalizedExt = ($ext === 'jpeg') ? 'jpg' : $ext;
+            if ($detectedExt !== '' && $detectedExt !== $normalizedExt) {
+                $correctedFileName  = preg_replace('/\.[^.]+$/', '.' . $detectedExt, $safeFileName);
+                $correctedFilePath  = $propertyImageDir . $correctedFileName;
+                if (@rename($localFilePath, $correctedFilePath)) {
+                    Logger::log(
+                        "        Extension corrected: {$safeFileName} → {$correctedFileName} " .
+                        "(file content is {$detectedExt}, extension was {$normalizedExt})",
+                        'INFO'
+                    );
+                    $safeFileName  = $correctedFileName;
+                    $localFilePath = $correctedFilePath;
+                    $dbImagePath   = $safeFileName;
+                    // Re-check DB using the corrected filename in case a record already exists
+                    try {
+                        $stmtRecheck = self::$db->prepare(
+                            "SELECT id FROM `" . \DB_PREFIX . "osrs_photos` WHERE pro_id = ? AND image = ?"
+                        );
+                        $stmtRecheck->execute([$propertyOsId, $dbImagePath]);
+                        $existingPhotoId = $stmtRecheck->fetchColumn();
+                        $stmtRecheck->closeCursor();
+                    } catch (\PDOException $e) {
+                        $existingPhotoId = false;
+                    }
+                } else {
+                    Logger::log(
+                        "        WARNING: Could not rename {$safeFileName} to {$correctedFileName} – proceeding with original name.",
+                        'WARNING'
+                    );
+                }
+            }
+        }
+
         // Ensure thumb & medium
         self::ensureResizedVariants($propertyOsId, $safeFileName);
 
@@ -496,18 +556,19 @@ class ImagesMapper
                 return false;
             }
 
-            [$w, $h] = @getimagesize($src) ?: [0, 0];
-            if ($w <= 0 || $h <= 0) {
+            // Use getimagesize() to detect the ACTUAL image type from file content,
+            // not the file extension. Alto sometimes sends JPEG data with a .png extension.
+            $imgInfo = @getimagesize($src);
+            if (!$imgInfo || $imgInfo[0] <= 0 || $imgInfo[1] <= 0) {
                 Logger::log("getimagesize failed for {$src}", 'ERROR');
                 return false;
             }
+            [$w, $h, $imgType] = $imgInfo;
 
-            $ext = strtolower(pathinfo($src, PATHINFO_EXTENSION));
-            switch ($ext) {
-                case 'jpg':
-                case 'jpeg':
+            switch ($imgType) {
+                case IMAGETYPE_JPEG:
                     $im = @imagecreatefromjpeg($src);
-                    if (function_exists('exif_read_data')) {
+                    if ($im && function_exists('exif_read_data')) {
                         $exif = @exif_read_data($src);
                         if ($exif && !empty($exif['Orientation'])) {
                             switch ((int)$exif['Orientation']) {
@@ -518,16 +579,18 @@ class ImagesMapper
                         }
                     }
                     break;
-                case 'png':
+                case IMAGETYPE_PNG:
                     $im = @imagecreatefrompng($src);
                     break;
-                case 'gif':
+                case IMAGETYPE_GIF:
                     $im = @imagecreatefromgif($src);
                     break;
                 default:
+                    Logger::log("Unsupported image type (type={$imgType}) for {$src}", 'ERROR');
                     return false;
             }
             if (!$im) {
+                Logger::log("Failed to create image resource for {$src} (type={$imgType})", 'ERROR');
                 return false;
             }
 
@@ -536,15 +599,15 @@ class ImagesMapper
             $newH  = max(1, (int)floor($h * $scale));
 
             $dstIm = imagecreatetruecolor($newW, $newH);
-            if ($ext === 'png') {
+            if ($imgType === IMAGETYPE_PNG) {
                 imagealphablending($dstIm, false);
                 imagesavealpha($dstIm, true);
                 $transparent = imagecolorallocatealpha($dstIm, 0, 0, 0, 127);
                 imagefilledrectangle($dstIm, 0, 0, $newW, $newH, $transparent);
-            } elseif ($ext === 'gif') {
+            } elseif ($imgType === IMAGETYPE_GIF) {
                 $transIndex = imagecolortransparent($im);
                 if ($transIndex >= 0) {
-                    $transColor = imagecolorsforindex($im, $transIndex);
+                    $transColor    = imagecolorsforindex($im, $transIndex);
                     $transIndexNew = imagecolorallocate($dstIm, $transColor['red'], $transColor['green'], $transColor['blue']);
                     imagefill($dstIm, 0, 0, $transIndexNew);
                     imagecolortransparent($dstIm, $transIndexNew);
@@ -559,17 +622,18 @@ class ImagesMapper
 
             @mkdir(dirname($dst), 0755, true);
 
+            // Write output using detected type (not extension), so JPEG data
+            // saved with a .png extension is still written correctly as JPEG.
             $ok = false;
-            switch ($ext) {
-                case 'jpg':
-                case 'jpeg':
+            switch ($imgType) {
+                case IMAGETYPE_JPEG:
                     $ok = imagejpeg($dstIm, $dst, $quality);
                     break;
-                case 'png':
+                case IMAGETYPE_PNG:
                     $compression = 9 - (int)round(($quality / 100) * 9);
                     $ok = imagepng($dstIm, $dst, $compression);
                     break;
-                case 'gif':
+                case IMAGETYPE_GIF:
                     $ok = imagegif($dstIm, $dst);
                     break;
             }

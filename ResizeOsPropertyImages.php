@@ -36,8 +36,10 @@ class ResizeOsPropertyImages
             [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
         );
 
-        // Root path to property images (no trailing slash)
-        $this->baseDir = rtrim($_SERVER['DOCUMENT_ROOT'] . '/images/osproperty/properties', '/');
+        // Root path to property images (no trailing slash).
+        // Use PROPERTY_IMAGE_UPLOAD_BASE_PATH from config.php — it resolves correctly
+        // in both CLI and web contexts, unlike $_SERVER['DOCUMENT_ROOT'].
+        $this->baseDir = rtrim(\PROPERTY_IMAGE_UPLOAD_BASE_PATH, '/');
     }
 
     public function run(): void
@@ -179,21 +181,23 @@ class ResizeOsPropertyImages
                 return false;
             }
 
-            // Load source
-            $ext = strtolower(pathinfo($src, PATHINFO_EXTENSION));
-            switch ($ext) {
-                case 'jpg':
-                case 'jpeg':
+            // Load source using detected type from getimagesize(), NOT file extension.
+            // Alto sometimes sends JPEG data with a .png extension, which causes
+            // imagecreatefrompng() to fail. Using $type from getimagesize() ensures
+            // we use the correct loader regardless of the filename.
+            switch ($type) {
+                case IMAGETYPE_JPEG:
                     $im = @imagecreatefromjpeg($src);
                     $this->fixExifOrientation($src, $im);
                     break;
-                case 'png':
+                case IMAGETYPE_PNG:
                     $im = @imagecreatefrompng($src);
                     break;
-                case 'gif':
+                case IMAGETYPE_GIF:
                     $im = @imagecreatefromgif($src);
                     break;
                 default:
+                    Logger::log("Unsupported image type (type={$type}) for {$src}", 'ERROR');
                     return false;
             }
             if (!$im) return false;
@@ -212,12 +216,12 @@ class ResizeOsPropertyImages
             }
 
             // Transparency for PNG/GIF
-            if ($ext === 'png') {
+            if ($type === IMAGETYPE_PNG) {
                 imagealphablending($dstIm, false);
                 imagesavealpha($dstIm, true);
                 $transparent = imagecolorallocatealpha($dstIm, 0, 0, 0, 127);
                 imagefilledrectangle($dstIm, 0, 0, $newW, $newH, $transparent);
-            } elseif ($ext === 'gif') {
+            } elseif ($type === IMAGETYPE_GIF) {
                 $transIndex = imagecolortransparent($im);
                 if ($transIndex >= 0) {
                     $transColor = imagecolorsforindex($im, $transIndex);
@@ -237,19 +241,18 @@ class ResizeOsPropertyImages
             // Ensure destination dir exists
             @mkdir(dirname($dst), 0755, true);
 
-            // Save
+            // Save using detected type so JPEG data in a .png file is still written correctly.
             $ok = false;
-            switch ($ext) {
-                case 'jpg':
-                case 'jpeg':
+            switch ($type) {
+                case IMAGETYPE_JPEG:
                     $ok = imagejpeg($dstIm, $dst, $quality);
                     break;
-                case 'png':
+                case IMAGETYPE_PNG:
                     // Convert 0–100 quality to PNG compression 0–9 (invert scale)
                     $compression = 9 - (int)round(($quality / 100) * 9);
                     $ok = imagepng($dstIm, $dst, $compression);
                     break;
-                case 'gif':
+                case IMAGETYPE_GIF:
                     $ok = imagegif($dstIm, $dst);
                     break;
             }
