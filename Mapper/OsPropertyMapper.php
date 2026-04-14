@@ -15,6 +15,7 @@ require_once __DIR__ . '/PlansMapper.php';
 require_once __DIR__ . '/EnergyRatingMapper.php';
 require_once __DIR__ . '/StatusMapper.php';
 require_once __DIR__ . '/ImagesMapper.php';
+require_once __DIR__ . '/PropertyTypeMapper.php';
 
 use AltoSync\Logger;
 use AltoSync\Helpers\AutoResetHelper;
@@ -25,6 +26,7 @@ use AltoSync\Mapper\PlansMapper;
 use AltoSync\Mapper\EnergyRatingMapper;
 use AltoSync\Mapper\StatusMapper;
 use AltoSync\Mapper\ImagesMapper;
+use AltoSync\Mapper\PropertyTypeMapper;
 
 /**
  * Class OsPropertyMapper
@@ -279,68 +281,6 @@ class OsPropertyMapper
     }
 
     /**
-     * Map Alto <type> to OS Property type (osrs_types).
-     */
-    public static function getOrCreatePropertyTypeId(\PDO $db, string $altoPropertyType): int
-    {
-        $altoPropertyType = trim($altoPropertyType);
-        Logger::log("  getOrCreatePropertyTypeId - Alto type: '{$altoPropertyType}'", 'DEBUG');
-
-        if ($altoPropertyType === '') {
-            Logger::log("  WARNING: Empty <type> in Alto – defaulting to 'Unknown' (ID 7).", 'WARNING');
-            return 7;
-        }
-
-        $standardizedType = 'Other';
-        $lower = strtolower($altoPropertyType);
-
-        if (str_contains($lower, 'house')) {
-            $standardizedType = 'House';
-        } elseif (str_contains($lower, 'bungalow')) {
-            $standardizedType = 'Bungalow';
-        } elseif (str_contains($lower, 'flat') || str_contains($lower, 'apartment')) {
-            $standardizedType = 'Flat';
-        } elseif (str_contains($lower, 'maisonette')) {
-            $standardizedType = 'Maisonette';
-        } elseif (str_contains($lower, 'land')) {
-            $standardizedType = 'Land';
-        } elseif (str_contains($lower, 'farm')) {
-            $standardizedType = 'Farm';
-        } elseif (str_contains($lower, 'commercial')) {
-            $standardizedType = 'Commercial';
-        } elseif (str_contains($lower, 'garage')) {
-            $standardizedType = 'Garage';
-        } elseif (str_contains($lower, 'parking')) {
-            $standardizedType = 'Parking';
-        }
-
-        Logger::log("  getOrCreatePropertyTypeId - Standardized '{$altoPropertyType}' → '{$standardizedType}'", 'DEBUG');
-
-        $table = \DB_PREFIX . 'osrs_types';
-
-        try {
-            $stmt = $db->prepare("SELECT id FROM `{$table}` WHERE `type_name` = ?");
-            $stmt->execute([$standardizedType]);
-            $id = $stmt->fetchColumn();
-            $stmt->closeCursor();
-
-            if ($id) {
-                Logger::log("  Found OS Property Type '{$standardizedType}' (ID {$id})", 'DEBUG');
-                return (int) $id;
-            }
-
-            $stmt = $db->prepare("INSERT INTO `{$table}` (`type_name`, `published`) VALUES (?, 1)");
-            $stmt->execute([$standardizedType]);
-            $newId = $db->lastInsertId();
-            Logger::log("  Created new OS Property Type '{$standardizedType}' (ID {$newId})", 'INFO');
-            return (int) $newId;
-        } catch (\PDOException $e) {
-            Logger::log("  ERROR in getOrCreatePropertyTypeId for '{$standardizedType}': " . $e->getMessage(), 'ERROR');
-            return 7;
-        }
-    }
-
-    /**
      * Fallback category resolver from Alto web_status.
      */
     public static function getOrCreateCategoryId(\PDO $db, string $altoWebStatus): int
@@ -358,16 +298,36 @@ class OsPropertyMapper
 
         if ($numericStatus !== null) {
             switch ($numericStatus) {
-                case 0:  $categoryName = 'For Sale / To Let'; break;
-                case 1:  $categoryName = 'Let Agreed / Under Offer'; break;
-                case 2:  $categoryName = 'Let'; break;
-                case 3:  $categoryName = 'Withdrawn'; break;
-                case 4:  $categoryName = 'Completed'; break;
-                case 100: $categoryName = 'To Let (New Lettings)'; break;
-                case 101: $categoryName = 'Let Agreed (New Lettings)'; break;
-                case 102: $categoryName = 'Let (New Lettings)'; break;
-                case 103: $categoryName = 'Withdrawn (New Lettings)'; break;
-                case 104: $categoryName = 'Completed (New Lettings)'; break;
+                case 0:
+                    $categoryName = 'For Sale / To Let';
+                    break;
+                case 1:
+                    $categoryName = 'Let Agreed / Under Offer';
+                    break;
+                case 2:
+                    $categoryName = 'Let';
+                    break;
+                case 3:
+                    $categoryName = 'Withdrawn';
+                    break;
+                case 4:
+                    $categoryName = 'Completed';
+                    break;
+                case 100:
+                    $categoryName = 'To Let (New Lettings)';
+                    break;
+                case 101:
+                    $categoryName = 'Let Agreed (New Lettings)';
+                    break;
+                case 102:
+                    $categoryName = 'Let (New Lettings)';
+                    break;
+                case 103:
+                    $categoryName = 'Withdrawn (New Lettings)';
+                    break;
+                case 104:
+                    $categoryName = 'Completed (New Lettings)';
+                    break;
                 default:
                     $categoryName = 'Unknown Status ' . $numericStatus;
                     Logger::log("  WARNING: Unknown numerical web_status '{$numericStatus}'", 'WARNING');
@@ -769,7 +729,11 @@ class OsPropertyMapper
             $longitude        = (string) $propertyXmlObject->longitude;
 
             // Property type + category mapping
-            $propertyTypeId = self::getOrCreatePropertyTypeId(self::$db, $propertyTypeAlto);
+            // $propertyTypeId = self::getOrCreatePropertyTypeId(self::$db, $propertyTypeAlto);
+            // New PropertyTypeMapper
+            $propertyTypeMapper = new PropertyTypeMapper(self::$db);
+            $propertyTypeId = $propertyTypeMapper->map($propertyTypeAlto);
+
 
             // Determine Market + Category and map to category_id
             $webStatusAttr = (string) ($propertyXmlObject->web_status['id'] ?? '');
