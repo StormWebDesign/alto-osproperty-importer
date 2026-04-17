@@ -651,8 +651,20 @@ class OsPropertyMapper
             }
             Logger::log("  Using lastchanged timestamp: {$lastChanged}", 'INFO');
 
-            $createdDate  = substr($lastChanged, 0, 10);
+            // modified = when Alto last changed the property (price reductions, etc.)
             $modifiedDate = substr($lastChanged, 0, 10);
+
+            // created = when the property was first uploaded to Alto.
+            // Using lastchanged here would make price-reduced properties appear
+            // "newly listed" to OS Property's frontend ribbon logic (3-day window).
+            $uploadedRaw = trim((string) $propertyXmlObject->uploaded);
+            if ($uploadedRaw && $uploadedRaw !== '1900-01-01T00:00:00') {
+                $uploadedClean = substr(str_replace('T', ' ', preg_replace('/\.\d+$/', '', $uploadedRaw)), 0, 10);
+                $createdDate   = $uploadedClean;
+            } else {
+                $createdDate = $modifiedDate;
+            }
+            Logger::log("  Using created date: {$createdDate} (uploaded), modified date: {$modifiedDate} (lastchanged)", 'INFO');
 
             // Web status and STATUSMAPPER
             $webStatus = (string) (
@@ -703,6 +715,40 @@ class OsPropertyMapper
             $priceValue     = (int) preg_replace('/[^\d]/', '', $priceRaw);
             $priceQualifier = (string) ($propertyXmlObject->price->qualifier ?? '');
             $displayText    = (string) ($propertyXmlObject->price->display_text ?? '');
+
+            // Detect price reduction for existing properties.
+            // If the incoming price is lower than what is stored, preserve the old price
+            // in price_original so the frontend can show a "Price Reduced" ribbon.
+            // If the price is the same or has gone up, clear price_original.
+            $priceOriginal = null;
+            $existingOsIdForPrice = self::getOsPropertyIdByAltoId($altoId);
+            if ($existingOsIdForPrice > 0) {
+                try {
+                    $stmtExPrice = self::$db->prepare("
+                        SELECT price, price_original
+                        FROM `" . \DB_PREFIX . "osrs_properties`
+                        WHERE id = ?
+                    ");
+                    $stmtExPrice->execute([$existingOsIdForPrice]);
+                    $exRow = $stmtExPrice->fetch(\PDO::FETCH_ASSOC);
+                    $stmtExPrice->closeCursor();
+
+                    if ($exRow) {
+                        $storedPrice = (float) $exRow['price'];
+                        if ($priceValue > 0 && $storedPrice > 0 && $priceValue < $storedPrice) {
+                            $priceOriginal = $storedPrice;
+                            Logger::log("  Price reduction detected: £{$storedPrice} → £{$priceValue}. Storing original.", 'INFO');
+                        }
+                        // If price unchanged, carry forward existing price_original
+                        if ($priceValue === (int) $storedPrice) {
+                            $priceOriginal = ($exRow['price_original'] > 0) ? (float) $exRow['price_original'] : null;
+                        }
+                        // If price went up, price_original stays null (clears the ribbon)
+                    }
+                } catch (\PDOException $e) {
+                    Logger::log("  Could not fetch existing price for Alto {$altoId}: " . $e->getMessage(), 'WARNING');
+                }
+            }
 
             $summary     = (string) ($propertyXmlObject->summary ?? '');
             $description = (string) ($propertyXmlObject->description ?? '');
@@ -842,6 +888,7 @@ class OsPropertyMapper
                 $summary,
                 $description,
                 $priceValue,
+                $priceOriginal,
                 $displayText,
                 $currencyId,
                 $bedrooms,
@@ -878,7 +925,7 @@ class OsPropertyMapper
                 INSERT INTO `" . \DB_PREFIX . "osrs_properties` (
                     alto_id, pro_name, pro_type, pro_alias, address,
                     country, state, city, postcode, pro_small_desc, pro_full_desc,
-                    price, price_text, curr, bed_room, bath_room, rooms,
+                    price, price_original, price_text, curr, bed_room, bath_room, rooms,
                     lat_add, long_add, ref, agent_id, published, hits, approved, access,
                     created, modified, company_id, category_id,
                     square_feet, lot_size, built_on,
@@ -887,7 +934,7 @@ class OsPropertyMapper
                 ) VALUES (
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?,
@@ -905,6 +952,7 @@ class OsPropertyMapper
                     pro_small_desc = VALUES(pro_small_desc),
                     pro_full_desc  = VALUES(pro_full_desc),
                     price          = VALUES(price),
+                    price_original = VALUES(price_original),
                     price_text     = VALUES(price_text),
                     curr           = VALUES(curr),
                     bed_room       = VALUES(bed_room),

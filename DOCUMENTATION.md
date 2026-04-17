@@ -26,6 +26,44 @@
 
 ---
 
+### [2026-04-17 ~14:00] – Price-reduced properties showing "New Instructions" ribbon on the frontend
+
+#### What was broken
+Properties that had recently had their price reduced in Alto were displaying a "New Instructions" status ribbon on the OS Property frontend detail page, making them appear as newly listed properties.
+
+#### Root cause
+Two separate issues combined to cause this:
+
+1. **OS Property's ribbon logic** (in the frontend template `details.html.tpl.php`) shows a "New Instructions" ribbon for any property whose `created` date is within the last 3 days.
+
+2. **Our importer was setting `created` from Alto's `lastchanged` timestamp** — the same timestamp used for `modified`. When a price reduction happens in Alto, `lastchanged` updates to today. Because `created` was derived from `lastchanged`, the property appeared freshly created in OS Property's eyes, triggering the ribbon.
+
+The `isSold` field in OS Property was also mapped incorrectly throughout `StatusMapper`. The assumption was that `isSold = 0` meant "Available", but in OS Property `isSold = 0` is actually "New Instructions". The full correct scale is: 0 = New Instructions, 1 = For Sale, 2 = Under Offer, 3 = Sold STC, 4 = Sold, 5 = To Let, 6 = Let Agreed, 7 = Let.
+
+#### Files changed
+- [Mapper/OsPropertyMapper.php](Mapper/OsPropertyMapper.php)
+- [Mapper/StatusMapper.php](Mapper/StatusMapper.php)
+
+#### What was changed
+
+**`Mapper/OsPropertyMapper.php`**
+
+`$createdDate` is now derived from `$propertyXmlObject->uploaded` (the date the property was first listed in Alto) rather than `lastchanged`. `$modifiedDate` continues to use `lastchanged`. A guard treats the Alto sentinel date `1900-01-01` as absent and falls back to `lastchanged` in that case. Since `created` is not in the `ON DUPLICATE KEY UPDATE` clause, existing properties are unaffected; only properties not yet in the database will benefit from the correct date on their first import.
+
+The `isSold` update guard was also changed from `isset($propertyIsSold)` to `$status !== null`. The old guard silently skipped writing `NULL` to the database (because `isset(null)` is false), which meant active listings could never have their stale `isSold` value cleared.
+
+**`Mapper/StatusMapper.php`**
+
+All `isSold` values were corrected to match OS Property's actual scale. Active for-sale (web_status 0) and active to-let (web_status 100) listings now return `isSold = null`, which writes `NULL` to the database and shows no ribbon. Other statuses were remapped: Sold → 4, Sold STC → 3, Let Agreed → 6, Let → 7, To Let → 5, Completed/Withdrawn → 4.
+
+#### How to verify
+1. Find a property that recently had a price reduction and was showing "New Instructions".
+2. Reset it (`processed = 0`) and re-run `import.php`.
+3. On the frontend detail page, the "New Instructions" ribbon should no longer appear.
+4. Check `logs/alto-import.log` — the `created date` log line should show the original upload date (e.g. `2023-06-27`), not today's date.
+
+---
+
 ### [2026-04-14 17:00] – English property detail pages returning 404 or loading wrong property data
 
 #### What was broken

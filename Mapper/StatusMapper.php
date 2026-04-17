@@ -55,7 +55,7 @@ class StatusMapper
         // Default
         $result = [
             'isSold' => 0,
-            'label'  => 'Available'
+            'label'  => ''
         ];
 
         // ----------------------
@@ -66,27 +66,29 @@ class StatusMapper
 
             switch ($n) {
                 case 0:
-                    return ['isSold' => 0, 'label' => 'Available'];
+                    // Active for-sale listing
+                    return ['isSold' => 0, 'label' => ''];
                 case 1:
-                    return ['isSold' => 1, 'label' => 'Sold'];
+                    return ['isSold' => 4, 'label' => 'Sold'];
                 case 2:
-                    return ['isSold' => 1, 'label' => 'Let'];
+                    return ['isSold' => 7, 'label' => 'Let'];
                 case 3:
-                    return ['isSold' => 3, 'label' => 'Let Agreed'];
+                    return ['isSold' => 6, 'label' => 'Let Agreed'];
                 case 4:
-                    return ['isSold' => 1, 'label' => 'Completed'];
+                    return ['isSold' => 4, 'label' => 'Completed'];
                 case 7:
                     return ['isSold' => 3, 'label' => 'Sold STC'];
                 case 100:
-                    return ['isSold' => 0, 'label' => 'To Let'];
+                    // Active to-let listing
+                    return ['isSold' => 0, 'label' => ''];
                 case 101:
-                    return ['isSold' => 3, 'label' => 'Let Agreed'];
+                    return ['isSold' => 6, 'label' => 'Let Agreed'];
                 case 102:
-                    return ['isSold' => 1, 'label' => 'Let'];
+                    return ['isSold' => 7, 'label' => 'Let'];
                 case 103:
-                    return ['isSold' => 1, 'label' => 'Withdrawn'];
+                    return ['isSold' => 4, 'label' => 'Withdrawn'];
                 case 104:
-                    return ['isSold' => 1, 'label' => 'Completed'];
+                    return ['isSold' => 4, 'label' => 'Completed'];
             }
 
             return $result;
