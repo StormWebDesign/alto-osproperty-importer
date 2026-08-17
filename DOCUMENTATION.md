@@ -26,6 +26,55 @@
 
 ---
 
+### [2026-08-17 ~14:00] – SSTC / Under Offer properties not showing correct status on the frontend
+
+#### What was broken
+Properties marked as SSTC (Sold Subject to Contract) in Alto were not displaying any sold/under-offer status on the OS Property frontend. They appeared as normal active listings with no ribbon.
+
+Additionally, four lettings properties with a "Completed" tenancy were displaying a "Sold" ribbon, which is incorrect for a lettings listing.
+
+#### Root cause
+Three separate issues combined:
+
+1. **Wrong web_status mapping for SSTC**: For this Alto account, web_status `3` means SSTC/Sold Subject to Contract for sales listings. The `StatusMapper` was mapping web_status `3` to `isSold = 6` ("Let Agreed"), which was incorrect. The original developer's older method (`mapWebStatusToIsSold`) had correctly mapped it to isSold=3 (Sold STC), but this was broken when the StatusMapper was rewritten in April 2026. Lettings "Let Agreed" arrives as web_status `101` (already handled separately), so there is no conflict.
+
+2. **Active listings writing `isSold = 0` instead of `null`**: The StatusMapper was returning `isSold = 0` for active for-sale (web_status 0) and active to-let (web_status 100) properties. In OS Property, isSold=0 is the "New Instructions" state. The correct value for an active listing with no status overlay is `null` (writes NULL to the database, shows no ribbon). The isSold update guard was also still using `isset($propertyIsSold)`, which silently skips writing NULL to the database — meaning a property that moved from SSTC back to active would keep its old ribbon indefinitely.
+
+3. **Wrong mapping for Lettings Completed (web_status 104)**: The StatusMapper mapped web_status `104` (Lettings Completed) to `isSold = 4` ("Sold"), causing lettings properties whose tenancy had ended to display a "Sold" ribbon. The correct label for a completed lettings property is `isSold = 7` ("Let").
+
+#### Files changed
+- [Mapper/StatusMapper.php](Mapper/StatusMapper.php)
+- [Mapper/OsPropertyMapper.php](Mapper/OsPropertyMapper.php)
+
+#### What was changed
+
+**`Mapper/StatusMapper.php`**
+
+- `case 3` changed from `isSold = 6` ("Let Agreed") to `isSold = 3` ("Sold STC") — this is the correct mapping for this Alto account where web_status 3 = SSTC for sales properties.
+- `case 0` changed from `isSold = 0` to `isSold = null` — active for-sale listings now write NULL to the database, showing no status ribbon.
+- `case 100` changed from `isSold = 0` to `isSold = null` — same fix for active to-let listings.
+- `case 104` changed from `isSold = 4` ("Completed") to `isSold = 7` ("Let") — completed lettings tenancies now correctly show as "Let" rather than "Sold".
+
+**`Mapper/OsPropertyMapper.php`**
+
+- The `custom_status` fallback block (which handles Alto accounts that send SSTC via the `<custom_status>` element) had its trigger condition updated from `$propertyIsSold === 0` to `($propertyIsSold === null || $propertyIsSold === 0)`, so it continues to work now that active listings return null from StatusMapper.
+- The isSold UPDATE guard was changed from `isset($propertyIsSold)` to `$status !== null`. `isset(null)` returns false, which meant NULL was never written to the database for active listings. With the guard changed, the UPDATE always runs, correctly clearing a stale ribbon when a property reverts from SSTC back to active.
+
+#### How to verify
+1. Find a property marked SSTC in Alto. Reset it (`processed = 0`) and re-run `import.php`.
+2. Check the log — should show `web_status='3' → isSold=3 ('Sold STC')` and `Set isSold=3`.
+3. The property should display the "Under Offer" / Sold STC ribbon on the frontend.
+4. Run the full status distribution query — should show no `isSold = 4` and no cross-category mismatches:
+   ```sql
+   SELECT isSold, COUNT(*) FROM ix3gf_osrs_properties GROUP BY isSold ORDER BY isSold;
+   SELECT o.alto_id, o.pro_name, o.category_id, o.isSold
+   FROM ix3gf_osrs_properties o
+   WHERE (o.category_id = 5 AND o.isSold IN (6, 7))
+      OR (o.category_id = 6 AND o.isSold IN (3, 4));
+   ```
+
+---
+
 ### [2026-04-17 ~14:00] – Price-reduced properties showing "New Instructions" ribbon on the frontend
 
 #### What was broken

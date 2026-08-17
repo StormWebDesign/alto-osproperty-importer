@@ -66,21 +66,23 @@ class StatusMapper
 
             switch ($n) {
                 case 0:
-                    // Active for-sale listing
-                    return ['isSold' => 0, 'label' => ''];
+                    // Active for-sale listing — null writes NULL to DB, shows no ribbon
+                    return ['isSold' => null, 'label' => ''];
                 case 1:
                     return ['isSold' => 4, 'label' => 'Sold'];
                 case 2:
                     return ['isSold' => 7, 'label' => 'Let'];
                 case 3:
-                    return ['isSold' => 6, 'label' => 'Let Agreed'];
+                    // Alto web_status 3 = SSTC for this account's sales listings.
+                    // Lettings "Let Agreed" arrives as web_status 101, not 3.
+                    return ['isSold' => 3, 'label' => 'Sold STC'];
                 case 4:
                     return ['isSold' => 4, 'label' => 'Completed'];
                 case 7:
                     return ['isSold' => 3, 'label' => 'Sold STC'];
                 case 100:
-                    // Active to-let listing
-                    return ['isSold' => 0, 'label' => ''];
+                    // Active to-let listing — null writes NULL to DB, shows no ribbon
+                    return ['isSold' => null, 'label' => ''];
                 case 101:
                     return ['isSold' => 6, 'label' => 'Let Agreed'];
                 case 102:
@@ -88,7 +90,8 @@ class StatusMapper
                 case 103:
                     return ['isSold' => 4, 'label' => 'Withdrawn'];
                 case 104:
-                    return ['isSold' => 4, 'label' => 'Completed'];
+                    // Lettings completed — tenancy finished, but label as Let not Sold
+                    return ['isSold' => 7, 'label' => 'Let'];
             }
 
             return $result;

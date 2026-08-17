@@ -666,11 +666,27 @@ class OsPropertyMapper
             }
             Logger::log("  Using created date: {$createdDate} (uploaded), modified date: {$modifiedDate} (lastchanged)", 'INFO');
 
-            // Web status and STATUSMAPPER
-            $webStatus = (string) (
-                $propertyXmlObject->web_status['id']
-                ?? $propertyXmlObject->web_status
-                ?? 'available'
+            // ── Status fields: capture everything ALTO provides ───────────────────
+            $webStatusAttrId = (string) ($propertyXmlObject->web_status['id'] ?? '');
+            $webStatusText   = (string) ($propertyXmlObject->web_status ?? '');
+            $customStatus    = trim((string) ($propertyXmlObject->custom_status ?? ''));
+            $soldDateRaw     = (string) ($propertyXmlObject->solddate ?? '');
+            $letDateRaw      = (string) ($propertyXmlObject->letdate ?? '');
+
+            // Prefer web_status id attribute; fall back to element text
+            $webStatus = $webStatusAttrId !== ''
+                ? $webStatusAttrId
+                : ($webStatusText !== '' ? $webStatusText : 'available');
+
+            Logger::log(
+                "  STATUS RAW [Alto {$altoId}]:"
+                . " web_status_attr_id='" . $webStatusAttrId . "'"
+                . " web_status_text='" . $webStatusText . "'"
+                . " custom_status='" . $customStatus . "'"
+                . " solddate='" . $soldDateRaw . "'"
+                . " letdate='" . $letDateRaw . "'"
+                . " → resolved web_status='" . $webStatus . "'",
+                'INFO'
             );
 
             $status = StatusMapper::map($webStatus);
@@ -681,9 +697,34 @@ class OsPropertyMapper
                 $propertyIsSold   = $status['isSold'];
                 $extraFieldStatus = $status['label'];
                 Logger::log(
-                    "  STATUSMAPPER: web_status={$webStatus} → isSold={$propertyIsSold} ({$extraFieldStatus})",
+                    "  STATUSMAPPER [Alto {$altoId}]: web_status='{$webStatus}'"
+                    . " → isSold={$propertyIsSold} ('{$extraFieldStatus}')",
                     'INFO'
                 );
+            }
+
+            // ── custom_status fallback ────────────────────────────────────────────
+            // If web_status resolved to Active (isSold=0) but custom_status contains
+            // a recognisable market-status keyword, use that instead.
+            // This handles ALTO accounts that record status via custom_status rather
+            // than the standard numeric web_status codes.
+            if (($propertyIsSold === null || $propertyIsSold === 0) && $customStatus !== '') {
+                $customStatusMapped = StatusMapper::map($customStatus);
+                if ($customStatusMapped !== null && $customStatusMapped['isSold'] !== 0) {
+                    $propertyIsSold   = $customStatusMapped['isSold'];
+                    $extraFieldStatus = $customStatusMapped['label'];
+                    Logger::log(
+                        "  STATUSMAPPER FALLBACK [Alto {$altoId}]: custom_status='{$customStatus}'"
+                        . " → isSold={$propertyIsSold} ('{$extraFieldStatus}')",
+                        'INFO'
+                    );
+                } else {
+                    Logger::log(
+                        "  STATUSMAPPER [Alto {$altoId}]: custom_status='{$customStatus}'"
+                        . " did not resolve to a non-active status; keeping isSold=0",
+                        'INFO'
+                    );
+                }
             }
 
             // Core fields
@@ -1021,15 +1062,20 @@ class OsPropertyMapper
                     self::upsertPropertyCategoryLink($propertyOsId, (int) $categoryId);
                 }
 
-                // StatusMapper: apply isSold if available
-                if (isset($propertyIsSold) && $propertyOsId) {
+                // StatusMapper: always write isSold (including NULL for active listings,
+                // which clears a stale ribbon when a property reverts from SSTC to active).
+                if ($status !== null && $propertyOsId) {
                     $stmtIsSold = self::$db->prepare("
                         UPDATE `" . \DB_PREFIX . "osrs_properties`
                         SET isSold = ?
                         WHERE id = ?
                     ");
                     $stmtIsSold->execute([$propertyIsSold, $propertyOsId]);
-                    Logger::log("  STATUSMAPPER: Updated isSold={$propertyIsSold} for PID {$propertyOsId}", 'INFO');
+                    Logger::log(
+                        "  STATUSMAPPER [Alto {$altoId}]: Set isSold={$propertyIsSold}"
+                        . " ('{$extraFieldStatus}') for PID {$propertyOsId}",
+                        'INFO'
+                    );
                 }
             } else {
                 Logger::log("  ERROR: Insert/Update failed for Alto {$altoId}: " . json_encode($stmt->errorInfo()), 'ERROR');
