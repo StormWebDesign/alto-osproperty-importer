@@ -22,6 +22,9 @@ try {
         DB_PREFIX . 'osrs_properties',
         DB_PREFIX . 'osrs_photos',
         DB_PREFIX . 'osrs_property_categories',
+        // OS Property's SEF lookup (URL path -> property id). Must be cleared with
+        // osrs_properties, otherwise old URLs resolve to whichever property now has that id.
+        DB_PREFIX . 'osrs_urls',
         DB_PREFIX . 'alto_properties',
         DB_PREFIX . 'alto_branches'
     ];

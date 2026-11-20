@@ -35,6 +35,53 @@ For **how the system works now** (architecture, field mappings, the `isSold` rib
 
 ---
 
+### [2026-11-20 ~18:00] – Shared property links opening a different house
+
+#### What was broken
+A property link shared on social media opened the right house at first, but later opened a different house, while the address bar still showed the original URL. Example: `/en/sales/tudor-property-search/61-lleyn-street-pwllheli` loaded property 61, which is now "Victoria Parade, Pwllheli". The three current Lleyn Street listings are IDs 25, 40 and 60.
+
+#### Root cause
+OS Property doesn't resolve a property URL from the number at the front of the path. When its router builds a link, it stores `md5(path) → task=property_details&id=N` in `#__osrs_urls`. It only ever inserts into that table and never updates it. Incoming URLs are resolved only from that table (see `parse()` and `build()` in `components/com_osproperty/router.php`).
+
+`clear_properties.php` and `reset_all_data.php` truncate `osrs_properties`, which restarts the IDs from 1, but they didn't empty `osrs_urls`. After a full reset and re-import, the houses get new IDs in a different order, while every URL generated before the reset still points to the old ID number. Those links now open a different property.
+
+Evidence on live:
+- `md5('61-lleyn-street-pwllheli')` is stored as `id=61`.
+- ID 1 is the newest listing (created 2026-11-05), and IDs run from 1 to 92 with no gaps, which shows the table was rebuilt by a reset.
+- `osrs_urls` held 697 property-detail entries for 92 properties.
+
+The entry for 2026-04-14 below asked for a full reset after deploying, which is one point where this happened. Its own root cause ("the router extracts the leading numeric portion") is also inaccurate. The "wrong property" symptom described there was most likely this same stale-table problem.
+
+The importer itself doesn't change IDs. `alto_id` has a UNIQUE index (`uniq_alto_id`), there are no duplicate rows, and every alias starts with its own ID (checked 2026-11-20).
+
+#### Files changed
+- [clear_properties.php](clear_properties.php)
+- [reset_all_data.php](reset_all_data.php)
+- [Mapper/OsPropertyMapper.php](Mapper/OsPropertyMapper.php) (comment only)
+
+#### What was changed
+- Both reset scripts now also truncate `osrs_urls`.
+- The incorrect router comment in `OsPropertyMapper.php` was rewritten.
+
+#### One-off fix on live
+1. Back up the table: `CREATE TABLE ix3gf_osrs_urls_backup_20261120 AS SELECT * FROM ix3gf_osrs_urls;`
+2. Empty it, either with OS Property's own "Optimize SEF URLs" tool or with `DELETE FROM ix3gf_osrs_urls;`. OS Property does the same on install and upgrade. Entries are rebuilt automatically as pages are rendered.
+
+After this, links shared before a reset return "Page not found" instead of a different house. Current links keep working.
+
+#### How to verify
+1. Open `/en/sales/tudor-property-search/61-lleyn-street-pwllheli`. It should show "Page not found", not Victoria Parade.
+2. Open a property from the listing page and share it. The link should open the same house.
+3. Check that no current property's own path points to a different ID (expect no results):
+   ```sql
+   SELECT p.id, p.pro_alias, u.query
+   FROM ix3gf_osrs_properties p
+   JOIN ix3gf_osrs_urls u ON u.md5_key = MD5(p.pro_alias)
+   WHERE u.query NOT REGEXP CONCAT('(^|&)id=', p.id, '(&|$)');
+   ```
+
+---
+
 ### [2026-11-20 ~13:00] – "Let Agreed" lettings showing a "Withdrawn" banner on the frontend
 
 #### What was broken

@@ -62,6 +62,7 @@ if (!hasFlag('--yes')) {
     echo "  - " . DB_PREFIX . "alto_branches\n";
     echo "  - " . DB_PREFIX . "alto_properties\n";
     echo "  - " . DB_PREFIX . "osrs_properties\n";
+    echo "  - " . DB_PREFIX . "osrs_urls\n";
     if (!$keepPhotosTab) echo "  - " . DB_PREFIX . "osrs_photos\n";
     if (!$keepXml)       echo "  - " . DB_PREFIX . "osrs_xml_details\n";
     echo "Filesystem cleared:\n";
@@ -94,6 +95,9 @@ $tables = [
     DB_PREFIX . 'alto_branches',
     DB_PREFIX . 'alto_properties',
     DB_PREFIX . 'osrs_properties',
+    // OS Property's SEF lookup (URL path -> property id). Must be cleared with
+    // osrs_properties, otherwise old URLs resolve to whichever property now has that id.
+    DB_PREFIX . 'osrs_urls',
 ];
 if (!$keepPhotosTab) {
     $tables[] = DB_PREFIX . 'osrs_photos';

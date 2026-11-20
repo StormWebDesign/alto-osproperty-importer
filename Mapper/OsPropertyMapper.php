@@ -898,13 +898,15 @@ class OsPropertyMapper
 
             // INSERT/UPDATE for #__osrs_properties
             //
-            // OS Property's SEF router extracts the FIRST numeric segment of the
-            // pro_alias field and uses it as the OS Property ID when resolving detail
-            // page URLs. The alias must therefore be prefixed with the OS Property ID
-            // (the small auto-increment integer), NOT the Alto property ID (an 8-digit
-            // external reference). Using the Alto ID causes the router to look for a
-            // property with that ID, find nothing, and either return 404 or load
-            // completely wrong data via a fallback query.
+            // OS Property's SEF router uses pro_alias as the URL segment. When it
+            // builds a link it stores md5(segment) -> "task=property_details&id=N" in
+            // #__osrs_urls (insert-only, never updated), and resolves incoming URLs
+            // purely from that table. The alias is prefixed with the OS Property ID
+            // (the small auto-increment integer) so every property's path is unique
+            // even when titles repeat (e.g. several "Lleyn Street, Pwllheli").
+            // Because #__osrs_urls is keyed on the path, it MUST be emptied whenever
+            // osrs_properties is truncated, or old paths open whichever property
+            // now has that id (see DOCUMENTATION 2026-11-20 shared links bug).
             //
             // For existing properties we know the OS Property ID already, so we can
             // build the correct alias upfront. For new properties we don't know the ID

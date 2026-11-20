@@ -146,7 +146,8 @@ Each property is mapped inside **one database transaction**. The order is:
 9. **INSERT … ON DUPLICATE KEY UPDATE** into `osrs_properties`, keyed on `alto_id` (UNIQUE):
    - **New property:** the alias is first set to the Alto ID, then corrected to `{osPropertyId}-{slug}` once the new ID is known.
    - **Existing property:** `{osPropertyId}-{slug}` is written straight away.
-   - This alias format is **required by OS Property's SEF router**. See DOCUMENTATION 2026-04-14.
+   - The ID prefix keeps every URL path unique even when titles repeat (there are several "Lleyn Street, Pwllheli" listings). See DOCUMENTATION 2026-04-14.
+   - **How OS Property resolves a property URL:** it does *not* read the number in the path. When it builds a link it stores `md5(path) → task=property_details&id=N` in `ix3gf_osrs_urls`. That table is insert-only, and incoming URLs are resolved only from it (a path that isn't in it returns 404). So if `osrs_properties` is ever emptied and re-imported, `osrs_urls` **must be emptied too**, or old links open whichever property now has that ID. See DOCUMENTATION 2026-11-20 (shared links).
 10. **Category link:** `osrs_property_categories` is rewritten with the single category, which the listing template reads.
 11. **`isSold` UPDATE:** it is always written, so stale ribbons are cleared.
 12. **`AutoResetHelper`:** sets `pro_pdf_file1`–`9` to NULL. Then:
@@ -332,8 +333,8 @@ If `web_status` gives 0, `StatusMapper` falls back to matching `<custom_status>`
 
 | Script | What it does |
 |---|---|
-| `reset_all_data.php` | **Empties (TRUNCATE)** `osrs_properties`, `osrs_photos`, `osrs_property_categories`, `alto_properties` and `alto_branches`. No confirmation prompt |
-| `clear_properties.php` | Empties the importer and OS Property tables, **deletes all property image folders**, then runs sync → import → `ImportPhotosFromFS --all --reorder --prune` → `BackfillOsPropertyImages --all`. Needs `--yes`. Options: `--no-fs-clear`, `--keep-xml`, `--keep-photos-table`, `--no-photo-scan`, `--no-backfill`, `--php=<bin>` |
+| `reset_all_data.php` | **Empties (TRUNCATE)** `osrs_properties`, `osrs_photos`, `osrs_property_categories`, `osrs_urls`, `alto_properties` and `alto_branches`. No confirmation prompt |
+| `clear_properties.php` | Empties the importer and OS Property tables (including `osrs_urls`), **deletes all property image folders**, then runs sync → import → `ImportPhotosFromFS --all --reorder --prune` → `BackfillOsPropertyImages --all`. Needs `--yes`. Options: `--no-fs-clear`, `--keep-xml`, `--keep-photos-table`, `--no-photo-scan`, `--no-backfill`, `--php=<bin>` |
 | `cleanup_property_images.php` | Deletes everything in `images/osproperty/properties/` except `medium`, `panorama`, `thumb` and `index.html` |
 
 > A full reset gives every property a **new OS Property ID**, which changes every property URL.
