@@ -117,6 +117,10 @@ class AltoApi
     private function acquireNewToken()
     {
         Logger::log("No valid token found in memory or file. Attempting to acquire a new token...", 'INFO');
+        if ($this->username === '' || $this->password === '') {
+            Logger::log("Alto API credentials are not set. Define ALTO_API_USERNAME and ALTO_API_PASSWORD in config.local.php.", 'CRITICAL');
+            throw new \Exception("Alto API credentials missing.");
+        }
         $url = $this->baseUrl . 'branch'; // As per Alto documentation, initial token request is to /branch
         Logger::log("Attempting token acquisition from URL: " . $url, 'INFO');
         Logger::log("Using API Username: " . $this->username, 'DEBUG');

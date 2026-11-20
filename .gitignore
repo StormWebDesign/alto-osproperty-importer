@@ -10,3 +10,8 @@ logs/alto-import.log
 tokens.txt
 /xml
 /logs
+
+# Local credentials (see config.local.php.example)
+config.local.php
+config.php
+config.php

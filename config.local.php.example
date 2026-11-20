@@ -1,0 +1,22 @@
+<?php
+// Copy this file to config.local.php (same folder) and fill in the values.
+// config.local.php is NOT committed to git.
+
+// Alto API Credentials (required)
+define('ALTO_API_USERNAME', '');
+define('ALTO_API_PASSWORD', '');
+
+// ---------------------------------------------------------------------------
+// Optional overrides – only needed when NOT running from <joomla>/cli/alto-sync/
+// ---------------------------------------------------------------------------
+
+// Path to the Joomla root containing configuration.php
+// define('JOOMLA_ROOT', '/home/sites/24a/d/ddaaffa754/public_html');
+
+// Or set the database connection directly (skips Joomla's configuration.php)
+// define('DB_HOST', '');
+// define('DB_PORT', 3306);
+// define('DB_NAME', '');
+// define('DB_USER', '');
+// define('DB_PASS', '');
+// define('DB_PREFIX', 'ix3gf_');

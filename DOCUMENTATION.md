@@ -1,5 +1,11 @@
 # AltoSync – OS Property Importer: Technical Documentation
 
+This document is the **change log**: what was broken or added, why, and how it was fixed. It is ordered newest first within each section.
+
+For **how the system works now** (architecture, field mappings, the `isSold` ribbon table, scripts, common tasks and known issues), see [README.md](README.md).
+
+> **Note on earlier entries:** some statements in older entries were later found to be wrong. They are left unchanged as a record. The corrections are listed under [Changes → 2026-11-20 – Documentation review](#2026-11-20-1500--documentation-review-and-corrections-to-earlier-entries).
+
 ---
 
 ## How To Update This Document
@@ -17,8 +23,11 @@
 >    - **Files changed** — list every file that was modified
 >    - **What was changed** — describe the code change clearly enough that a developer can understand it without reading the diff
 >    - **How to verify** — describe how to confirm the fix or feature is working
-> 5. Do not delete or edit previous entries — this is a historical log.
+> 5. Do not delete or edit previous entries — this is a historical log. If an earlier entry turns out to be wrong, add a correction under **Changes** and say which entry it corrects.
 > 6. Keep language clear and non-technical where possible, as this document may be read by the client.
+> 7. Put new entries at the **top** of their section (newest first).
+> 8. If the change affects how the system works (pipeline, mappings, status/ribbon values, scripts, setup steps or known issues), update [README.md](README.md) as well and change its "Last reviewed" date.
+> 9. Before changing anything to do with status ribbons, read README §5. The ribbon wording comes from the site's custom OS Property theme, not from OS Property core.
 
 ---
 
@@ -372,10 +381,116 @@ $this->baseDir = rtrim(\PROPERTY_IMAGE_UPLOAD_BASE_PATH, '/');
 
 ## Features
 
-*No feature additions documented yet.*
+---
+
+### [2026-04-17 ~14:00] – "Price Reduced" ribbon support (documented retrospectively, 2026-11-20)
+
+#### What was needed
+The site's theme shows a "Price Reduced" ribbon on properties whose price has recently dropped. The importer needed to give the theme the information to do that. This change was made in the same commit as the "New Instructions" fix below (git `b516fbf`) but was not written up at the time.
+
+#### Reason
+OS Property can only tell that a price was reduced if the old price is stored in `price_original`. Alto only sends the current price, so the importer has to notice the drop itself.
+
+#### Files changed
+- [Mapper/OsPropertyMapper.php](Mapper/OsPropertyMapper.php)
+
+#### What was changed
+Before writing a property that already exists, the importer reads its stored `price` and `price_original`:
+- **New price lower than stored price:** the stored price is saved into `price_original`.
+- **Price unchanged:** the existing `price_original` is kept.
+- **Price went up:** `price_original` is cleared, which removes the ribbon.
+
+The custom theme (`details.html.tpl.php`) shows "Price Reduced" when `price_original > price` **and** `modified` is within the last 7 days. "New Instructions" takes priority if `created` is also within the last 7 days.
+
+#### How to verify
+1. Reduce a property's price in Alto and wait for the next sync/import, or reset it to `processed = 0` and run `import.php`.
+2. The import log should show `Price reduction detected: £X → £Y. Storing original.`
+3. The property should show "Price Reduced" on the frontend for 7 days.
 
 ---
 
 ## Changes
 
-*No general changes documented yet.*
+---
+
+### [2026-11-20 ~16:00] – Credentials removed from config.php
+
+#### What was needed
+`config.php` contained the live Joomla database password and the Alto API username and password, and it was committed to git.
+
+#### Reason
+The scripts run from Joomla's `/cli/alto-sync/` folder, so the database credentials can be read from Joomla's own `configuration.php` and don't need to be duplicated. The Alto credentials have no equivalent in Joomla, so they were moved to a file that isn't committed.
+
+#### Files changed
+- [config.php](config.php)
+- [config.local.php.example](config.local.php.example) (new)
+- [AltoApi.php](AltoApi.php)
+- [.gitignore](.gitignore)
+
+#### What was changed
+- **`config.php`:**
+  - Loads `config.local.php` first, if it exists, so it can override any setting.
+  - Then reads `host` (including `host:port`), `db`, `user`, `password` and `dbprefix` from Joomla's `configuration.php` (`JConfig`), two folders up, and defines the same `DB_*` constants as before. No other script needed to change.
+  - If Joomla's configuration can't be found, it stops with a clear message.
+  - The Alto username and password default to empty unless `config.local.php` defines them.
+- **`config.local.php.example`:** a template for the server-only `config.local.php`, which holds the Alto credentials and optional overrides.
+- **`AltoApi.php`:** if the Alto credentials are empty, it logs `CRITICAL: Alto API credentials are not set…` and makes no API call. Previously it would have sent blank credentials.
+- **`.gitignore`:** `config.local.php` added.
+
+#### How to verify
+1. On the server, create `cli/alto-sync/config.local.php` from the example, with the Alto username and password.
+2. Upload the new `config.php` and `AltoApi.php`.
+3. Run `/usr/bin/php83 sync.php`. `logs/alto-sync.log` should show `Database connection established` and a successful branch list call.
+4. Run `/usr/bin/php83 import.php` and check `logs/alto-import.log` for errors.
+
+> **Important:** upload `config.local.php` **before** or together with the new `config.php`. Otherwise the next scheduled sync will log the missing-credentials error and do nothing until the file is in place. No data is lost.
+
+---
+
+### [2026-11-20 15:00] – Documentation review and corrections to earlier entries
+
+#### What was needed
+A full review of the code so that someone returning to the project can get started quickly. The README was last updated in November 2025 and no longer matched the code.
+
+#### Files changed
+- [README.md](README.md) — completely rewritten
+- [DOCUMENTATION.md](DOCUMENTATION.md) — introduction, update instructions, the retrospective "Price Reduced" entry, and this entry
+
+No code was changed.
+
+#### What was changed
+**README.md** now covers:
+- server locations and scheduling;
+- the sync → import pipeline step by step;
+- field, category, image and PDF mappings;
+- the `isSold` ribbon table taken from the site's custom theme;
+- every script, including which are destructive and which are legacy;
+- common tasks with SQL;
+- troubleshooting;
+- a list of known issues found during the review;
+- a fresh-install checklist.
+
+**Corrections to earlier entries.** These are left unchanged above, but are wrong or out of date:
+
+| Entry | Statement | Correction |
+|---|---|---|
+| 2026-04-17 (New Instructions) and 2026-08-17 (SSTC) | `isSold` scale "0 = New Instructions, 1 = For Sale, 2 = Under Offer, 3 = Sold STC, 4 = Sold, 5 = To Let, 6 = Let Agreed, 7 = Let" | Wrong for this site. The real labels come from the custom theme `09092025154155default` — see the 2026-11-20 bug fix and README §5. `0` shows no ribbon |
+| 2026-04-17 and 2026-08-17 | Active listings write `NULL` to `isSold` | The column is `NOT NULL DEFAULT 0`, so MySQL stored `0`. Since 2026-11-20 the importer writes `0` directly |
+| 2026-08-17 | web_status `104` = "Lettings Completed", mapped to `isSold = 7` ("Let") | `104` = Let Agreed, and `7` displays "Withdrawn". Fixed 2026-11-20 |
+| 2026-04-17 | The "New Instructions" ribbon shows for properties created within the last **3 days** | That is stock OS Property. This site's custom theme uses **7 days** |
+| 2026-04-14 (English 404s) | Welsh aliases (`pro_alias_cy`) are stored as plain slugs | The importer does not write any `*_cy` columns. Welsh content and aliases are not imported (README §10) |
+| README (17 Nov 2025) | `reset_all_data.php` also clears OS Property categories | It does not. It truncates properties, photos, property-category links and the two importer tables |
+
+**Known issues** recorded in README §10 and not fixed:
+- credentials committed to git;
+- SSL verification disabled;
+- token helper scripts reading the wrong keys;
+- removed listings never unpublished;
+- count-based image sync;
+- `images_imported` column not created automatically;
+- Welsh content not imported;
+- logs not rotated;
+- a `TypeError` that can stop an import run.
+
+#### How to verify
+Read README.md from top to bottom alongside the code. Each section points to the file and method it describes.

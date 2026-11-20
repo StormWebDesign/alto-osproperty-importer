@@ -53,19 +53,26 @@ This README covers **how the system works now**. For the history of what was cha
 
 The server's cron runs `sync.php` **every hour at about :05**; the timestamps in `alto-sync.log` show this. `import.php` also runs on a schedule, because properties get `processed = 1` without anyone running it by hand. The cron definitions are in **StackCP**, not in this repo, so check the exact schedule there.
 
-### Configuration – `config.php`
+### Configuration – `config.php` and `config.local.php`
+
+`config.php` contains **no credentials**:
+
+- **Database credentials** are read from **Joomla's own `configuration.php`**, in the `JConfig` class: `host` (which may be `host:port`), `db`, `user`, `password` and `dbprefix`. Joomla's root is assumed to be two folders up (`<joomla>/cli/alto-sync/`). If the Joomla database password changes, the importer picks it up automatically.
+- **Alto API credentials** live in **`config.local.php`**. That file is in `.gitignore` and exists only on the server. To create it, copy `config.local.php.example` and fill it in. If the credentials are missing, `AltoApi` logs a `CRITICAL` error and makes no API calls.
+- `config.local.php` is loaded **first**, so it can override any constant. Override `JOOMLA_ROOT`, or set all of `DB_*`, to run the scripts somewhere other than the Joomla server.
 
 | Constant | Purpose |
 |---|---|
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_PREFIX` | Joomla database connection (`DB_PREFIX` = `ix3gf_`) |
-| `ALTO_API_USERNAME`, `ALTO_API_PASSWORD` | Basic-auth credentials used to obtain an API token |
+| `JOOMLA_ROOT` | Joomla root folder (default: two levels above this folder) |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_PREFIX` | Joomla database connection (from `configuration.php`; `DB_PREFIX` = `ix3gf_`) |
+| `ALTO_API_USERNAME`, `ALTO_API_PASSWORD` | Basic-auth credentials used to obtain an API token (from `config.local.php`) |
 | `ALTO_API_BASE_URL`, `ALTO_API_DATAFEED_ID` | API base URL including datafeed ID and version |
 | `TOKEN_FILE` | `tokens.txt` – cached API token as JSON `{"token": "...", "expiry": <unix time>}` |
 | `LOGS_DIR`, `LOG_FILE_SYNC`, `LOG_FILE_IMPORT` | Log locations |
-| `PROPERTY_IMAGE_UPLOAD_BASE_PATH` | Absolute path to `images/osproperty/properties/`. Uses the `DOC_ROOT` env variable if set, otherwise `$_SERVER['DOCUMENT_ROOT']`, otherwise two folders above this directory |
+| `PROPERTY_IMAGE_UPLOAD_BASE_PATH` | Absolute path to `images/osproperty/properties/`. Uses the `DOC_ROOT` env variable if set, otherwise `$_SERVER['DOCUMENT_ROOT']`, otherwise `JOOMLA_ROOT` |
 | `PROPERTY_IMAGE_DB_BASE_PATH_PREFIX` | `properties/` – prefix used for image paths |
 
-> ⚠️ `config.php` and `tokens.txt` are **committed to git with live credentials**. See [§10](#10-known-issues-and-technical-debt).
+> ⚠️ Earlier versions of `config.php` (and `config.working-backup.php` and `tokens.txt`) were **committed to git with live credentials**, and those credentials are still in the git history. See [§10](#10-known-issues-and-technical-debt).
 
 ---
 
@@ -432,9 +439,9 @@ LEFT JOIN ix3gf_osrs_photos ph ON ph.pro_id = p.id WHERE ph.id IS NULL;
 
 Found during the November 2026 review. **None of these has been fixed.**
 
-1. **Credentials in git.** `config.php` (database and Alto passwords) and `tokens.txt` are tracked. `tokens.txt` is in `.gitignore`, but was committed before that. Recommendation:
-   - Move the secrets to an untracked `config.local.php`.
-   - Rotate the database and Alto passwords.
+1. **Credentials in git history.** Since 2026-11-20, `config.php` holds no secrets: the database credentials come from Joomla and the Alto credentials from an untracked `config.local.php`. But the old database and Alto passwords are still in the git history, in `config.php`, `config.working-backup.php` and `tokens.txt`, and `config.working-backup.php` still contains them. Recommendation:
+   - Delete `config.working-backup.php`.
+   - Change the database and Alto passwords.
    - Remove the files from git history if the repo is ever shared.
 2. **SSL verification disabled** in `AltoApi.php` (`CURLOPT_SSL_VERIFYPEER/HOST = false`, marked "for debugging only").
 3. **The token helper scripts don't match the token file format.**
@@ -461,7 +468,7 @@ Found during the November 2026 review. **None of these has been fixed.**
 2. Create OS Property categories with **IDs 5–8** (see [§4.2](#42-categories-categorymapper)) and the property types used by `PropertyTypeMapper`.
 3. Enable market status: `active_market_status = 1` and all statuses 1–7 ticked.
 4. **Create a Joomla menu item for OS Property before importing.** Without it, every property URL returns 404.
-5. Upload this folder to `public_html/cli/alto-sync/` and fill in `config.php`.
+5. Upload this folder to `public_html/cli/alto-sync/`. Copy `config.local.php.example` to `config.local.php` and enter the Alto API username and password. The database credentials are read from Joomla's `configuration.php` automatically.
 6. Run `php sync.php` once. It creates the tracking tables and extra columns.
 7. Add the image flag column, which `sync.php` doesn't create:
    ```sql
