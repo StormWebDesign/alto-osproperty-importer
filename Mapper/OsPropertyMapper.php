@@ -1062,7 +1062,7 @@ class OsPropertyMapper
                     self::upsertPropertyCategoryLink($propertyOsId, (int) $categoryId);
                 }
 
-                // StatusMapper: always write isSold (including NULL for active listings,
+                // StatusMapper: always write isSold (including 0 for active listings,
                 // which clears a stale ribbon when a property reverts from SSTC to active).
                 if ($status !== null && $propertyOsId) {
                     $stmtIsSold = self::$db->prepare("

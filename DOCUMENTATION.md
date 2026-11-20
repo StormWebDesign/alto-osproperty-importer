@@ -26,6 +26,82 @@
 
 ---
 
+### [2026-11-20 ~13:00] – "Let Agreed" lettings showing a "Withdrawn" banner on the frontend
+
+#### What was broken
+Lettings properties set to "Let Agreed" in Alto were displaying a "Withdrawn" ribbon and status banner on the website (e.g. Tyn Y Mur Estate, Morfa Nefyn — OS Property ID 87, Alto ID 35014296).
+
+#### Root cause
+The ribbon wording on this site does not come from OS Property's standard market status labels. It comes from the site's custom OS Property theme (`components/com_osproperty/templates/09092025154155default/`), whose `details.html.tpl.php` and `listing.html.tpl.php` contain their own `isSold` → label table. That table depends on whether the property's category is a letting (categories 6 and 8) or a sale (categories 5 and 7):
+
+| isSold | Lettings (cat 6, 8) | Sales (cat 5, 7) |
+|---|---|---|
+| 0 | no ribbon | no ribbon |
+| 1 | Let | Sold |
+| 3 | Let Agreed | Under Offer |
+| 4 | no ribbon | Sold STC |
+| 5 | Reserved | Reserved |
+| 7 | Withdrawn | Withdrawn |
+
+(2 and 6 show no ribbon.)
+
+The `isSold` scale described in the two earlier entries below (0 = New Instructions … 7 = Let) was incorrect for this site. The importer had been written against that scale:
+
+- Alto sends web_status `104` for lettings properties that are **Let Agreed**. The importer mapped `104` to `isSold = 7`, which this theme displays as "Withdrawn".
+- Active listings were mapped to `isSold = null`. The `isSold` column is defined `NOT NULL DEFAULT 0`, so MySQL was silently storing `0` anyway. This worked, but only by accident.
+
+#### Files changed
+- [Mapper/StatusMapper.php](Mapper/StatusMapper.php)
+- [Mapper/OsPropertyMapper.php](Mapper/OsPropertyMapper.php) (comment only)
+
+#### What was changed
+
+**`Mapper/StatusMapper.php` — `map()` method**
+
+The numeric web_status mapping now uses the custom theme's scale above (documented in the method's docblock):
+
+| Alto web_status | Meaning | isSold before | isSold now | Site shows |
+|---|---|---|---|---|
+| 0 / 100 | Available | null | 0 | no ribbon |
+| 3 | SSTC (sales) | 3 | 3 (unchanged) | Under Offer — client confirmed this wording is wanted |
+| **104** | **Let Agreed (lettings)** | **7** | **3** | **Let Agreed** |
+| 1, 4 | Sold / Completed* | 4 | 1 | Sold |
+| 2, 102 | Let* | 7 | 1 | Let |
+| 7 | Sold STC* | 3 | 3 (unchanged) | Under Offer |
+| 101 | Let Agreed* | 6 | 3 | Let Agreed |
+| 103 | Withdrawn* | 4 | 7 | Withdrawn |
+
+\* These codes have never been received from this Alto account. Only 0, 3, 100 and 104 appear in the live data. They keep the meaning the previous code assumed, mapped onto the correct `isSold` values. Any numeric code not in the list now writes a `WARNING` to `logs/alto-import.log` and defaults to no ribbon.
+
+The text-based status matching (used for the `<custom_status>` fallback) already produced values consistent with the theme and was not changed.
+
+**`Mapper/OsPropertyMapper.php`**
+
+Comment updated to say active listings write `0` rather than `NULL`. No code change.
+
+#### How to verify
+1. Reset the affected property and re-import:
+   ```sql
+   UPDATE ix3gf_alto_properties SET processed = 0 WHERE alto_property_id = '35014296';
+   ```
+   then run `php import.php`.
+2. Check `logs/alto-import.log` — should show `web_status='104' → isSold=3 ('Let Agreed')`.
+3. The property page and the lettings listing should show a "Let Agreed" ribbon instead of "Withdrawn".
+4. Confirm no property is left showing "Withdrawn" incorrectly:
+   ```sql
+   SELECT id, alto_id, pro_name, category_id, isSold
+   FROM ix3gf_osrs_properties
+   WHERE isSold = 7;
+   ```
+   This should return no rows unless Alto genuinely marks a property as withdrawn.
+5. Sales properties that are SSTC in Alto should still show "Under Offer".
+
+#### Notes
+- Print views, PDFs and alert emails use OS Property's standard labels (with the site's language overrides) rather than the custom theme. The same `isSold` value can therefore show different wording there, e.g. `3` = "Let Agreed" and `4` = "Off market".
+- If the custom theme's status table is ever changed, `StatusMapper::map()` must be updated to match.
+
+---
+
 ### [2026-08-17 ~14:00] – SSTC / Under Offer properties not showing correct status on the frontend
 
 #### What was broken
